@@ -88,6 +88,43 @@ The script generates several important files inside a `Results/` directory:
 * **`strategy_playbook.json`**: A dynamic JSON file defining the available strategies, their descriptions, and default feature sets.
 * **`nickname_ledger.json`**: Stores the AI-generated codenames for each script version.
 
+
+### Data File Requirements
+
+To load custom data into the framework, users must adhere to specific requirements regarding file location, naming, and content format.
+
+#### **File Location**
+* The data files, either `.csv` or `.txt`, must be placed in the root directory of the project.
+
+#### **File Naming Convention**
+The framework relies on a strict naming convention to automatically identify the financial instrument (symbol) and the chart timeframe.
+* **Format**: The filename must be in the format `SYMBOL_TIMEFRAME.csv` or `SYMBOL_TIMEFRAME.txt`.
+* **Examples**:
+    * `EURUSD_H1.csv` for Euro vs US Dollar on the 1-hour chart.
+    * `BTCUSD_M15.txt` for Bitcoin vs US Dollar on the 15-minute chart.
+
+#### **File Content and Columns**
+The file should contain standard OHLC (Open, High, Low, Close) data. The script is designed to be flexible and automatically detects the necessary columns.
+
+* **Delimiter**: The script can automatically handle comma-separated (`.csv`) and tab-separated (`.txt`) files.
+* **Column Names**: Column headers are case-insensitive. For example, `open`, `Open`, and `OPEN` are all treated the same.
+* **Required Columns**:
+    * **Price Data**: Columns for `Open`, `High`, `Low`, and `Close` must be present.
+    * **Timestamp**: The script needs date and time information, which can be provided in one of two ways:
+        1.  A single column containing both date and time.
+        2.  Two separate columns, one for `Date` and one for `Time`.
+* **Optional Columns**:
+    * **Volume**: A column for trade volume can be included under the name `Volume` or `Tickvol`. If no volume column is found, it is treated as zero.
+
+### Summary Table
+
+| Requirement | Details | Example(s) |
+| --- | --- | --- |
+| **Location** | Root directory of the framework. | `/home/user/ml_framework/` |
+| **Naming** | `SYMBOL_TIMEFRAME.extension` | `EURUSD_H1.csv`, `AAPL_D1.txt` |
+| **Extension** | `.csv` or `.txt` | `data.csv`, `data.txt` |
+| **Columns** | Must contain OHLC and Timestamp data. Volume is optional. | `Date, Time, Open, High, Low, Close, Volume` |
+
 ## ⚠️ Disclaimer
 
 This is an experimental framework for research purposes only. It is not financial advice. Trading financial markets involves substantial risk, and you can lose all of your invested capital. Past performance is not indicative of future results. Do not run this framework with real money without fully understanding the code and the risks involved.
