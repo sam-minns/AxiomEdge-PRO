@@ -1,28 +1,20 @@
-# End_To_End_Advanced_ML_Trading_Framework_PRO_V132_AI_Guardrails.py
+# End_To_End_Advanced_ML_Trading_Framework_PRO_V133_Dynamic_Start_Date.py
+#
+# V133 UPDATE (Dynamic Start Date):
+# 1. CRITICAL FIX - DYNAMIC TEST START DATE: Removed the hardcoded 'FORWARD_TEST_START_DATE'.
+#    The framework now automatically calculates the optimal start date for walk-forward
+#    testing based on the earliest date in the provided CSV data and the length of
+#    the 'TRAINING_WINDOW', making it fully adaptive to user data.
 #
 # V132 UPDATE (AI Guardrails & Sanitization):
 # 1. NEW - AI PARAMETER SANITIZER: The framework now sanitizes numeric suggestions
-#    from the AI before validation. It corrects invalid MAX_DD_PER_CYCLE values
-#    (e.g., '70' -> 0.7) and clamps other parameters to prevent crashes.
-# 2. FIX - FOLDER NAMING (from V1.31): Result folders are now named using the
-#    format '{Nickname}_V{Version}' for improved traceability.
-# 3. FIX - AI RESPONSE PARSING (from V1.31): The framework now robustly handles
-#    nested 'parameters' in AI-generated configurations.
-# 4. FIX - HYBRID STRATEGY PROMPT (from V1.31): The prompt for AI hybrid
-#    synthesis and the validation logic have been strengthened to ensure
-#    parameter ranges are correctly formatted.
-#
-# V131 UPDATE (Robustness & Traceability):
-# 1. FIX - FOLDER NAMING: Result folders are now named using the format
-#    '{Nickname}_V{Version}' (e.g., 'Pyrope_V131') for improved traceability
-#    and chronological sorting.
-# 2. FIX - AI RESPONSE PARSING: The framework now robustly handles nested 'parameters'
-#    in AI-generated configurations, preventing errors between daemon runs.
-# 3. FIX - HYBRID STRATEGY PROMPT: The prompt for AI hybrid synthesis has been
-#    strengthened to require parameter ranges in the correct list format,
-#    preventing the creation of invalid new strategies.
-# 4. IMPROVEMENT - PRE-FLIGHT PROMPT: The pre-flight prompt now explicitly
-#    requests 'selected_features' to reduce configuration errors.
+#    from the AI before validation, preventing crashes from invalid values.
+# 2. FIX - FOLDER NAMING: Result folders are named '{Nickname}_V{Version}'
+#    for improved traceability.
+# 3. FIX - AI RESPONSE PARSING: The framework now robustly handles nested 'parameters'
+#    in AI-generated configurations.
+# 4. FIX - HYBRID STRATEGY PROMPT: The prompt for AI hybrid synthesis and the
+#    validation logic have been strengthened to ensure correct formatting.
 
 import os
 import re
@@ -341,7 +333,7 @@ class GeminiAnalyzer:
 # 3. CONFIGURATION & VALIDATION
 # =============================================================================
 class ConfigModel(BaseModel):
-    BASE_PATH: DirectoryPath; REPORT_LABEL: str; FORWARD_TEST_START_DATE: str; INITIAL_CAPITAL: confloat(gt=0)
+    BASE_PATH: DirectoryPath; REPORT_LABEL: str; INITIAL_CAPITAL: confloat(gt=0)
     CONFIDENCE_TIERS: Dict[str, Dict[str, Any]]; BASE_RISK_PER_TRADE_PCT: confloat(gt=0, lt=1)
     SPREAD_PCTG_OF_ATR: confloat(ge=0); SLIPPAGE_PCTG_OF_ATR: confloat(ge=0); OPTUNA_TRIALS: conint(gt=0)
     TRAINING_WINDOW: str; RETRAINING_FREQUENCY: str; FORWARD_TEST_GAP: str; LOOKAHEAD_CANDLES: conint(gt=0)
@@ -1171,22 +1163,7 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
     current_config.update(ai_config_suggestion)
     # --- END OF CHECKS & SANITIZATION ---
 
-    chosen_strategy_features = playbook.get(current_config['strategy_name'], {}).get('features', [])
-    if not chosen_strategy_features:
-        logger.warning(f"Strategy '{current_config['strategy_name']}' not in playbook. Falling back to TrendFollower.")
-        current_config['strategy_name'] = 'TrendFollower'
-        chosen_strategy_features = playbook.get('TrendFollower', {}).get('features', [])
-
-    if 'selected_features' not in current_config or not isinstance(current_config.get('selected_features'), list):
-        current_config['selected_features'] = []
-
-    current_config['selected_features'] = [feat for feat in current_config['selected_features'] if feat in chosen_strategy_features]
-    if not current_config['selected_features']:
-        default_feature_count = min(len(chosen_strategy_features), 5)
-        current_config['selected_features'] = chosen_strategy_features[:default_feature_count]
-        logger.warning(f"AI-suggested features were empty or invalid for '{current_config['strategy_name']}'. Falling back to a default subset: {current_config['selected_features']}")
-
-    current_config['nickname'] = nickname_ledger.get(current_config['REPORT_LABEL'], "")
+    # Instantiate config early to get paths, but some values are placeholders
     initial_config = ConfigModel(**current_config)
 
     for handler in logger.handlers[:]:
@@ -1210,24 +1187,38 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
         "USDCAD_Daily_202001060000_202506020000.csv","USDCAD_H1_202001060000_202506021800.csv","USDCAD_M15_202105170000_202506021830.csv"
     ]
     
-    try:
-        data_by_tf=DataLoader(initial_config).load_and_parse_data(filenames=files_to_process)
-        if not data_by_tf:return
-        fe=FeatureEngineer(initial_config);df_featured=fe.create_feature_stack(data_by_tf)
-        if df_featured.empty:return
-    except Exception as e:logger.critical(f"[FATAL] Initial setup failed: {e}",exc_info=True);return
+    data_by_tf=DataLoader(initial_config).load_and_parse_data(filenames=files_to_process)
+    if not data_by_tf:return
+    fe=FeatureEngineer(initial_config);df_featured=fe.create_feature_stack(data_by_tf)
+    if df_featured.empty:return
 
-    test_start_date=pd.to_datetime(initial_config.FORWARD_TEST_START_DATE);max_date=df_featured.index.max()
-    retraining_dates=pd.date_range(start=test_start_date,end=max_date,freq=initial_config.RETRAINING_FREQUENCY)
+    # --- DYNAMIC DATE CALCULATION ---
+    min_data_date = df_featured.index.min()
+    initial_training_period = pd.Timedelta(initial_config.TRAINING_WINDOW)
+    test_start_date = min_data_date + initial_training_period
+    max_date = df_featured.index.max()
+    retraining_dates = pd.date_range(start=test_start_date, end=max_date, freq=initial_config.RETRAINING_FREQUENCY)
+    logger.info(f"Dynamic walk-forward start date calculated: {test_start_date.date()}. Found {len(retraining_dates)} cycles.")
+    # --- END DYNAMIC DATE ---
+
     all_trades,full_equity_curve,cycle_metrics,all_shap=[],[initial_config.INITIAL_CAPITAL],[],[]
     in_run_historical_cycles = []
 
     logger.info("-> Stage 3: Starting Adaptive Walk-Forward Analysis with AI Tuning...")
     for i,period_start_date in enumerate(retraining_dates):
+        # Re-validate config with potentially updated params from AI
         config=ConfigModel(**current_config)
         logger.info(f"\n{'='*25} CYCLE {i+1}/{len(retraining_dates)}: {period_start_date.date()} {'='*25}")
-        logger.info(f"  - Using Config: LOOKAHEAD={config.LOOKAHEAD_CANDLES}, OPTUNA_TRIALS={config.OPTUNA_TRIALS}, MAX_DD_PER_CYCLE={config.MAX_DD_PER_CYCLE}")
-        logger.info(f"  - Features for this cycle: {config.selected_features}")
+        logger.info(f"  - Using Config: LOOKAHEAD={config.LOOKAHEAD_CANDLES}, OPTUNA_TRIALS={config.OPTUNA_TRIALS}, MAX_DD_PER_CYCLE={config.MAX_DD_PER_CYCLE:.2%}")
+        
+        chosen_strategy_features = playbook.get(config.strategy_name, {}).get('features', [])
+        valid_features = [feat for feat in config.selected_features if feat in chosen_strategy_features]
+        if not valid_features:
+             default_feature_count = min(len(chosen_strategy_features), 5)
+             valid_features = chosen_strategy_features[:default_feature_count]
+             logger.warning(f"Feature list for cycle was invalid or empty. Falling back to: {valid_features}")
+        
+        logger.info(f"  - Features for this cycle: {valid_features}")
 
         train_end=period_start_date-pd.Timedelta(config.FORWARD_TEST_GAP)
         train_start=train_end-pd.Timedelta(config.TRAINING_WINDOW)
@@ -1241,7 +1232,7 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
         if df_train_labeled.empty or 'target' not in df_train_labeled.columns:
             cycle_metrics.append({'Cycle':i+1,'StartDate':period_start_date.date().isoformat(), 'Strategy': config.strategy_name, 'NumTrades':0,'WinRate':"N/A",'CyclePnL':"$0.00",'Status':"Skipped (Label Error)"});continue
 
-        trainer=ModelTrainer(config);training_result=trainer.train(df_train_labeled, feature_list=config.selected_features)
+        trainer=ModelTrainer(config);training_result=trainer.train(df_train_labeled, feature_list=valid_features)
         if training_result is None:
             cycle_metrics.append({'Cycle':i+1,'StartDate':period_start_date.date().isoformat(), 'Strategy': config.strategy_name, 'NumTrades':0,'WinRate':"N/A",'CyclePnL':"$0.00",'Status':"Failed (Training Error)"});continue
 
@@ -1250,7 +1241,7 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
 
         logger.info(f"  - Backtesting on out-of-sample data from {period_start_date.date()} to {test_end.date()}...")
         backtester=Backtester(config)
-        chunk_trades_df,chunk_equity,breaker_tripped,breaker_context = backtester.run_backtest_chunk(df_test_chunk,model,config.selected_features,best_threshold,initial_equity=full_equity_curve[-1])
+        chunk_trades_df,chunk_equity,breaker_tripped,breaker_context = backtester.run_backtest_chunk(df_test_chunk,model,valid_features,best_threshold,initial_equity=full_equity_curve[-1])
 
         cycle_pnl=0;cycle_win_rate="N/A"; status = "No Trades"
         if breaker_tripped: status = "Circuit Breaker"
@@ -1315,13 +1306,13 @@ def main():
     # - A 10-second interruptible countdown appears between each full run.
     # - The AI may attempt to synthesize new HYBRID strategies or perform a STRATEGIC REVIEW.
     CONTINUOUS_RUN_HOURS = 0
-    MAX_RUNS = 2    # Set > 1 to enable Daemon mode
+    MAX_RUNS = 1 # Set > 1 to enable Daemon mode
     # --- End Controls ---
 
     fallback_config={
-        "BASE_PATH": os.getcwd(), "REPORT_LABEL": "ML_Framework_V132_AI_Guardrails",
+        "BASE_PATH": os.getcwd(), "REPORT_LABEL": "ML_Framework_V133_Dynamic_Start_Date",
         "strategy_name": "TrendFollower",
-        "FORWARD_TEST_START_DATE": "2024-01-01", "INITIAL_CAPITAL": 100000.0,
+        "INITIAL_CAPITAL": 100000.0,
         "CONFIDENCE_TIERS": {'ultra_high':{'min':0.8,'risk_mult':1.2,'rr':3.0},'high':{'min':0.7,'risk_mult':1.0,'rr':2.5},'standard':{'min':0.6,'risk_mult':0.8,'rr':2.0}},
         "BASE_RISK_PER_TRADE_PCT": 0.01, "SPREAD_PCTG_OF_ATR": 0.05, "SLIPPAGE_PCTG_OF_ATR": 0.02,
         "OPTUNA_TRIALS": 30, "TRAINING_WINDOW": '365D', "RETRAINING_FREQUENCY": '90D',
@@ -1334,6 +1325,7 @@ def main():
     script_start_time = datetime.now()
     is_continuous = CONTINUOUS_RUN_HOURS > 0 or MAX_RUNS > 1
 
+    # Initial setup to get paths
     bootstrap_config = ConfigModel(**fallback_config, run_timestamp="init")
     playbook = initialize_playbook(bootstrap_config.BASE_PATH)
     analyzer = GeminiAnalyzer()
@@ -1395,4 +1387,4 @@ if __name__ == '__main__':
         os.system("chcp 65001 > nul")
     main()
 
-# End_To_End_Advanced_ML_Trading_Framework_PRO_V132_AI_Guardrails.py
+# End_To_End_Advanced_ML_Trading_Framework_PRO_V133_Dynamic_Start_Date.py

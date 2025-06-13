@@ -1,28 +1,25 @@
-# End_To_End_Advanced_ML_Trading_Framework_PRO_V132_AI_Guardrails.py
+# End_To_End_Advanced_ML_Trading_Framework_PRO_V134_Dynamic_Timeframes.py
+#
+# V134 UPDATE (Dynamic Timeframe Handling):
+# 1. NEW - TIMEFRAME DETECTION: The framework no longer hardcodes M15, H1, and D1.
+#    It now dynamically detects all timeframes present in the data folder by
+#    reading the CSV filenames (e.g., EURUSD_H4_...).
+# 2. NEW - DYNAMIC ROLE ASSIGNMENT: The script automatically sorts the detected
+#    timeframes and assigns them 'base' (lowest), 'medium', and 'high' roles,
+#    which are then used for feature engineering.
+# 3. IMPROVEMENT - FULLY ADAPTIVE: This makes the feature engineering process
+#    fully adaptive to any set of timeframes (e.g., M1, M5, H4).
+#
+# V133 UPDATE (Dynamic Start Date):
+# 1. CRITICAL FIX - DYNAMIC TEST START DATE: Removed the hardcoded 'FORWARD_TEST_START_DATE'
+#    and replaced it with a dynamic calculation based on the data's date range.
 #
 # V132 UPDATE (AI Guardrails & Sanitization):
 # 1. NEW - AI PARAMETER SANITIZER: The framework now sanitizes numeric suggestions
-#    from the AI before validation. It corrects invalid MAX_DD_PER_CYCLE values
-#    (e.g., '70' -> 0.7) and clamps other parameters to prevent crashes.
-# 2. FIX - FOLDER NAMING (from V1.31): Result folders are now named using the
-#    format '{Nickname}_V{Version}' for improved traceability.
-# 3. FIX - AI RESPONSE PARSING (from V1.31): The framework now robustly handles
-#    nested 'parameters' in AI-generated configurations.
-# 4. FIX - HYBRID STRATEGY PROMPT (from V1.31): The prompt for AI hybrid
-#    synthesis and the validation logic have been strengthened to ensure
-#    parameter ranges are correctly formatted.
-#
-# V131 UPDATE (Robustness & Traceability):
-# 1. FIX - FOLDER NAMING: Result folders are now named using the format
-#    '{Nickname}_V{Version}' (e.g., 'Pyrope_V131') for improved traceability
-#    and chronological sorting.
-# 2. FIX - AI RESPONSE PARSING: The framework now robustly handles nested 'parameters'
-#    in AI-generated configurations, preventing errors between daemon runs.
-# 3. FIX - HYBRID STRATEGY PROMPT: The prompt for AI hybrid synthesis has been
-#    strengthened to require parameter ranges in the correct list format,
-#    preventing the creation of invalid new strategies.
-# 4. IMPROVEMENT - PRE-FLIGHT PROMPT: The pre-flight prompt now explicitly
-#    requests 'selected_features' to reduce configuration errors.
+#    from the AI before validation, preventing crashes from invalid values.
+# 2. FIX - FOLDER NAMING: Result folders are named '{Nickname}_V{Version}'.
+# 3. FIX - AI RESPONSE PARSING: The framework now robustly handles nested 'parameters'.
+# 4. FIX - HYBRID STRATEGY PROMPT: Strengthened prompt and validation for hybrid creation.
 
 import os
 import re
@@ -35,6 +32,7 @@ import random
 from datetime import datetime, date, timedelta
 from logging.handlers import RotatingFileHandler
 from typing import List, Dict, Any, Optional, Tuple
+from collections import defaultdict
 import copy
 
 # --- LOAD ENVIRONMENT VARIABLES ---
@@ -300,7 +298,6 @@ class GeminiAnalyzer:
             if not isinstance(hybrid_body.get('features'), list) or not all(isinstance(f, str) for f in hybrid_body['features']):
                 logger.error(f"--- HYBRID SYNTHESIS: AI created a hybrid with an invalid 'features' list. Discarding. Content: {hybrid_body.get('features')}")
                 return None
-            # --- New validation for ranges ---
             for key in ['lookahead_range', 'dd_range']:
                 val = hybrid_body.get(key)
                 if not isinstance(val, list) or len(val) != 2 or not all(isinstance(n, (int, float)) for n in val):
@@ -341,7 +338,7 @@ class GeminiAnalyzer:
 # 3. CONFIGURATION & VALIDATION
 # =============================================================================
 class ConfigModel(BaseModel):
-    BASE_PATH: DirectoryPath; REPORT_LABEL: str; FORWARD_TEST_START_DATE: str; INITIAL_CAPITAL: confloat(gt=0)
+    BASE_PATH: DirectoryPath; REPORT_LABEL: str; INITIAL_CAPITAL: confloat(gt=0)
     CONFIDENCE_TIERS: Dict[str, Dict[str, Any]]; BASE_RISK_PER_TRADE_PCT: confloat(gt=0, lt=1)
     SPREAD_PCTG_OF_ATR: confloat(ge=0); SLIPPAGE_PCTG_OF_ATR: confloat(ge=0); OPTUNA_TRIALS: conint(gt=0)
     TRAINING_WINDOW: str; RETRAINING_FREQUENCY: str; FORWARD_TEST_GAP: str; LOOKAHEAD_CANDLES: conint(gt=0)
@@ -359,18 +356,16 @@ class ConfigModel(BaseModel):
         super().__init__(**data)
         results_dir = os.path.join(self.BASE_PATH, "Results")
         
-        # --- FOLDER NAMING LOGIC ---
         version_match = re.search(r'V(\d+)', self.REPORT_LABEL)
         version_str = f"_V{version_match.group(1)}" if version_match else ""
         
         if self.nickname and version_str:
             folder_name = f"{self.nickname}{version_str}"
         else:
-            folder_name = self.REPORT_LABEL # Fallback to full name
+            folder_name = self.REPORT_LABEL
         
         run_id = f"{folder_name}_{self.strategy_name}_{self.run_timestamp}"
         result_folder_path=os.path.join(results_dir, folder_name);os.makedirs(result_folder_path,exist_ok=True)
-        # --- END ---
 
         self.MODEL_SAVE_PATH=os.path.join(result_folder_path,f"{run_id}_model.json")
         self.PLOT_SAVE_PATH=os.path.join(result_folder_path,f"{run_id}_equity_curve.png")
@@ -388,15 +383,19 @@ class ConfigModel(BaseModel):
 # =============================================================================
 class DataLoader:
     def __init__(self, config: ConfigModel): self.config = config
-    def load_and_parse_data(self, filenames: List[str]) -> Optional[Dict[str, pd.DataFrame]]:
+    def load_and_parse_data(self, filenames: List[str]) -> Tuple[Optional[Dict[str, pd.DataFrame]], List[str]]:
         logger.info("-> Stage 1: Loading and Preparing Multi-Timeframe Data...")
-        data_by_tf: Dict[str, List[pd.DataFrame]] = {'D1': [], 'H1': [], 'M15': []}
+        data_by_tf = defaultdict(list)
         for filename in filenames:
             file_path = os.path.join(self.config.BASE_PATH, filename)
-            if not os.path.exists(file_path): logger.warning(f"  - File not found, skipping: {file_path}"); continue
+            if not os.path.exists(file_path): 
+                logger.warning(f"  - File not found, skipping: {file_path}")
+                continue
             try:
-                parts=filename.split('_');symbol,tf_str=parts[0],parts[1];tf='D1' if 'Daily' in tf_str else tf_str
-                if tf not in data_by_tf: continue
+                parts = filename.split('_')
+                if len(parts) < 2: continue
+                symbol, tf = parts[0], parts[1]
+
                 df=pd.read_csv(file_path,delimiter='\t' if '\t' in open(file_path).readline() else ',');df.columns=[c.upper().replace('<','').replace('>','') for c in df.columns]
                 date_col=next((c for c in df.columns if 'DATE' in c),None);time_col=next((c for c in df.columns if 'TIME' in c),None)
                 if date_col and time_col: df['Timestamp'] = pd.to_datetime(df[date_col] + ' ' + df[time_col], errors='coerce')
@@ -407,8 +406,10 @@ class DataLoader:
                 df.rename(columns=col_map,inplace=True);vol_col='Volume' if 'Volume' in df.columns else 'Tickvol'
                 df.rename(columns={vol_col:'RealVolume'},inplace=True,errors='ignore')
                 if 'RealVolume' not in df.columns:df['RealVolume']=0
-                df['Symbol']=symbol;data_by_tf[tf].append(df)
-            except Exception as e: logger.error(f"  - Failed to load {filename}: {e}", exc_info=True)
+                df['Symbol']=symbol
+                data_by_tf[tf].append(df)
+            except Exception as e: 
+                logger.error(f"  - Failed to load {filename}: {e}", exc_info=True)
 
         processed_dfs:Dict[str,pd.DataFrame]={}
         for tf,dfs in data_by_tf.items():
@@ -416,12 +417,22 @@ class DataLoader:
                 combined=pd.concat(dfs);all_symbols_df=[df[~df.index.duplicated(keep='first')].sort_index() for _,df in combined.groupby('Symbol')]
                 final_combined=pd.concat(all_symbols_df).sort_index();final_combined['RealVolume']=pd.to_numeric(final_combined['RealVolume'],errors='coerce').fillna(0)
                 processed_dfs[tf]=final_combined;logger.info(f"  - Processed {tf}: {len(final_combined):,} rows for {len(final_combined['Symbol'].unique())} symbols.")
-            else:logger.warning(f"  - No data found for {tf} timeframe.");processed_dfs[tf]=pd.DataFrame()
-        if not processed_dfs or any(df.empty for df in processed_dfs.values()):logger.critical("  - Data loading failed.");return None
-        logger.info("[SUCCESS] Data loading and preparation complete.");return processed_dfs
+        
+        detected_timeframes = list(processed_dfs.keys())
+        if not processed_dfs:
+            logger.critical("  - Data loading failed for all files.");
+            return None, []
+            
+        logger.info(f"[SUCCESS] Data loading complete. Detected timeframes: {detected_timeframes}")
+        return processed_dfs, detected_timeframes
 
 class FeatureEngineer:
-    def __init__(self, config: ConfigModel): self.config = config
+    TIMEFRAME_MAP = {'M1': 1,'M5': 5,'M15': 15,'M30': 30,'H1': 60,'H4': 240,'D1': 1440}
+
+    def __init__(self, config: ConfigModel, timeframe_roles: Dict[str, str]):
+        self.config = config
+        self.roles = timeframe_roles
+
     def _calculate_adx(self, g:pd.DataFrame, period:int) -> pd.DataFrame:
         df=g.copy();alpha=1/period;df['tr']=pd.concat([df['High']-df['Low'],abs(df['High']-df['Close'].shift()),abs(df['Low']-df['Close'].shift())],axis=1).max(axis=1)
         df['dm_plus']=((df['High']-df['High'].shift())>(df['Low'].shift()-df['Low'])).astype(int)*(df['High']-df['High'].shift()).clip(lower=0)
@@ -464,7 +475,7 @@ class FeatureEngineer:
             shifted_df=temp_df.shift(1);shifted_df['Symbol']=symbol;results.append(shifted_df)
         return pd.concat(results).reset_index()
 
-    def _calculate_m15_native(self, g:pd.DataFrame)->pd.DataFrame:
+    def _calculate_base_tf_native(self, g:pd.DataFrame)->pd.DataFrame:
         g_out=g.copy();lookback=14
         g_out['ATR']=(g['High']-g['Low']).rolling(lookback).mean();delta=g['Close'].diff();gain=delta.where(delta > 0,0).ewm(com=lookback-1,adjust=False).mean()
         loss=-delta.where(delta < 0,0).ewm(com=lookback-1,adjust=False).mean();g_out['RSI']=100-(100/(1+(gain/loss.replace(0,1e-9))))
@@ -475,27 +486,40 @@ class FeatureEngineer:
         g_out = self._calculate_seasonality(g_out)
         g_out = self._calculate_candlestick_patterns(g_out) # Depends on ATR
         g_out['hour'] = g_out.index.hour;g_out['day_of_week'] = g_out.index.dayofweek
-        g_out['market_regime']=np.where(g_out['ADX']>self.config.TREND_FILTER_THRESHOLD,1,0) # 1 for Trend, 0 for Range
+        g_out['market_regime']=np.where(g_out['ADX']>self.config.TREND_FILTER_THRESHOLD,1,0)
         return g_out
 
     def create_feature_stack(self, data_by_tf: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         logger.info("-> Stage 2: Engineering Features from Multi-Timeframe Data...")
-        if any(df.empty for df in data_by_tf.values()): logger.critical("  - One or more timeframes have no data."); return pd.DataFrame()
+        
+        base_tf, medium_tf, high_tf = self.roles['base'], self.roles['medium'], self.roles['high']
+        if base_tf not in data_by_tf:
+            logger.critical(f"Base timeframe '{base_tf}' data is missing. Cannot proceed."); return pd.DataFrame()
 
-        df_d1=self._calculate_htf_features(data_by_tf['D1'],'D1',20,14);df_h1=self._calculate_htf_features(data_by_tf['H1'],'H1',50,14)
-        df_m15_base_list = [self._calculate_m15_native(group) for _, group in data_by_tf['M15'].groupby('Symbol')]
-        df_m15_base = pd.concat(df_m15_base_list).reset_index()
+        # Calculate features on the base timeframe
+        df_base_list = [self._calculate_base_tf_native(group) for _, group in data_by_tf[base_tf].groupby('Symbol')]
+        df_base = pd.concat(df_base_list).reset_index()
+        df_merged = df_base
 
-        df_h1_sorted=df_h1.sort_values('Timestamp');df_d1_sorted=df_d1.sort_values('Timestamp')
-        df_merged=pd.merge_asof(df_m15_base.sort_values('Timestamp'),df_h1_sorted,on='Timestamp',by='Symbol',direction='backward')
-        df_merged=pd.merge_asof(df_merged.sort_values('Timestamp'),df_d1_sorted,on='Timestamp',by='Symbol',direction='backward')
-        df_final=df_merged.set_index('Timestamp').copy()
+        # Calculate and merge features from higher timeframes if they exist
+        if high_tf and high_tf in data_by_tf:
+            df_high_ctx = self._calculate_htf_features(data_by_tf[high_tf], high_tf, 20, 14)
+            df_merged = pd.merge_asof(df_merged.sort_values('Timestamp'), df_high_ctx.sort_values('Timestamp'), on='Timestamp', by='Symbol', direction='backward')
+        
+        if medium_tf and medium_tf in data_by_tf:
+            df_medium_ctx = self._calculate_htf_features(data_by_tf[medium_tf], medium_tf, 50, 14)
+            df_merged = pd.merge_asof(df_merged.sort_values('Timestamp'), df_medium_ctx.sort_values('Timestamp'), on='Timestamp', by='Symbol', direction='backward')
 
-        df_final['adx_x_h1_trend']=df_final['ADX']*df_final['H1_ctx_Trend']
-        df_final['atr_x_d1_trend']=df_final['ATR']*df_final['D1_ctx_Trend']
+        df_final = df_merged.set_index('Timestamp').copy()
 
-        all_features = ModelTrainer.BASE_FEATURES
-        feature_cols = list(set([f for f in all_features if f in df_final.columns]))
+        # Create interaction features if roles exist
+        if medium_tf:
+            df_final[f'adx_x_{medium_tf}_trend'] = df_final['ADX'] * df_final[f'{medium_tf}_ctx_Trend']
+        if high_tf:
+            df_final[f'atr_x_{high_tf}_trend'] = df_final['ATR'] * df_final[f'{high_tf}_ctx_Trend']
+
+        # Shift all features to prevent lookahead bias
+        feature_cols = [f for f in df_final.columns if f not in ['Open','High','Low','Close','RealVolume','Symbol']]
         df_final[feature_cols] = df_final.groupby('Symbol')[feature_cols].shift(1)
 
         df_final.replace([np.inf,-np.inf],np.nan,inplace=True)
@@ -536,16 +560,12 @@ class FeatureEngineer:
         group['target']=outcomes;return group
 
 class ModelTrainer:
-    # Expanded Feature Sets for Playbook
-    TREND_FEATURES = ['ADX', 'adx_x_h1_trend', 'atr_x_d1_trend', 'H1_ctx_Trend', 'D1_ctx_Trend', 'H1_ctx_SMA', 'D1_ctx_SMA']
+    # Feature sets are now illustrative; the actual features will depend on what's generated dynamically
+    TREND_FEATURES = ['ADX', 'H1_ctx_Trend', 'D1_ctx_Trend', 'H1_ctx_SMA', 'D1_ctx_SMA']
     REVERSAL_FEATURES = ['RSI', 'stoch_k', 'stoch_d', 'bollinger_bandwidth']
     VOLATILITY_FEATURES = ['ATR', 'bollinger_bandwidth']
     MOMENTUM_FEATURES = ['momentum_10', 'momentum_20', 'RSI']
-    RANGE_FEATURES = ['RSI', 'stoch_k', 'ADX', 'bollinger_bandwidth']
-    PRICE_ACTION_FEATURES = ['is_doji', 'is_engulfing']
-    SEASONALITY_FEATURES = ['month', 'week_of_year', 'day_of_month']
-    SESSION_FEATURES = ['hour', 'day_of_week']
-    BASE_FEATURES = list(set(TREND_FEATURES + REVERSAL_FEATURES + VOLATILITY_FEATURES + MOMENTUM_FEATURES + RANGE_FEATURES + PRICE_ACTION_FEATURES + SEASONALITY_FEATURES + SESSION_FEATURES))
+    # BASE_FEATURES is now dynamically determined from the dataframe columns in FeatureEngineer
 
     def __init__(self,config:ConfigModel):
         self.config=config
@@ -974,11 +994,6 @@ def initialize_playbook(base_path: str) -> Dict:
     DEFAULT_PLAYBOOK = {
         "TrendFollower": {"description": "Aims to catch long trends using HTF context and trend strength.", "features": list(set(ModelTrainer.TREND_FEATURES + ModelTrainer.SESSION_FEATURES)), "lookahead_range": [150, 250], "dd_range": [0.25, 0.40]},
         "MeanReversion": {"description": "Aims for short-term reversals using oscillators.", "features": list(set(ModelTrainer.REVERSAL_FEATURES + ModelTrainer.SESSION_FEATURES)),"lookahead_range": [40, 80], "dd_range": [0.15, 0.25]},
-        "VolatilityBreakout": {"description": "Trades breakouts during high volatility sessions.", "features": list(set(ModelTrainer.VOLATILITY_FEATURES + ModelTrainer.SESSION_FEATURES)), "lookahead_range": [60, 120], "dd_range": [0.20, 0.35]},
-        "Momentum": {"description": "Capitalizes on short-term price momentum.", "features": list(set(ModelTrainer.MOMENTUM_FEATURES + ModelTrainer.SESSION_FEATURES)), "lookahead_range": [30, 90], "dd_range": [0.18, 0.30]},
-        "RangeBound": {"description": "Trades within established ranges, using oscillators and trend-absence (low ADX).", "features": list(set(ModelTrainer.RANGE_FEATURES + ModelTrainer.SESSION_FEATURES)), "lookahead_range": [20, 60], "dd_range": [0.10, 0.20]},
-        "Seasonality": {"description": "Leverages recurring seasonal patterns or calendar effects.", "features": list(set(ModelTrainer.SEASONALITY_FEATURES + ModelTrainer.SESSION_FEATURES)), "lookahead_range": [50, 120], "dd_range": [0.15, 0.28]},
-        "PriceAction": {"description": "Trades based on the statistical outcomes of historical candlestick formations.", "features": list(set(ModelTrainer.PRICE_ACTION_FEATURES + ModelTrainer.SESSION_FEATURES)), "lookahead_range": [20, 80], "dd_range": [0.10, 0.25]}
     }
 
     if not os.path.exists(playbook_path):
@@ -1121,113 +1136,128 @@ def perform_strategic_review(history: Dict) -> Dict:
         
     return health_report
 
+def determine_timeframe_roles(detected_tfs: List[str]) -> Dict[str, Optional[str]]:
+    """Sorts detected timeframes and assigns base, medium, and high roles."""
+    tf_with_values = sorted(
+        [(tf, FeatureEngineer.TIMEFRAME_MAP.get(tf.upper(), 99999)) for tf in detected_tfs],
+        key=lambda x: x[1]
+    )
+    sorted_tfs = [tf[0] for tf in tf_with_values]
+    
+    roles = {'base': None, 'medium': None, 'high': None}
+    if not sorted_tfs:
+        raise ValueError("No timeframes were detected from the provided data files.")
+        
+    roles['base'] = sorted_tfs[0]
+    if len(sorted_tfs) == 2:
+        roles['high'] = sorted_tfs[1]
+    elif len(sorted_tfs) >= 3:
+        roles['medium'] = sorted_tfs[1]
+        roles['high'] = sorted_tfs[2]
+        if len(sorted_tfs) > 3:
+            logger.warning(f"Detected {len(sorted_tfs)} timeframes. Using {roles['base']} as base, {roles['medium']} as medium, and {roles['high']} as high.")
+            
+    logger.info(f"Dynamically determined timeframe roles: {roles}")
+    return roles
+
+
 def run_single_instance(fallback_config: Dict, framework_history: Dict, is_continuous: bool, playbook: Dict, nickname_ledger: Dict):
     """Encapsulates the logic for a single, complete run of the framework."""
     run_timestamp_str = datetime.now().strftime("%Y%m%d-%H%M%S")
     gemini_analyzer = GeminiAnalyzer()
 
-    # --- STRATEGIC REVIEW & PRE-FLIGHT CHECK ---
-    health_report = {}
-    directives = []
-    if is_continuous:
-        health_report = perform_strategic_review(framework_history)
-
     current_config = fallback_config.copy()
     current_config['run_timestamp'] = run_timestamp_str
-
-    ai_config_suggestion = gemini_analyzer.get_pre_flight_config(
-        framework_history, playbook, health_report, directives, current_config, exploration_rate=0.25
-    )
     
-    # Robustly parse AI suggestions, handling nested 'parameters' dict
-    if 'parameters' in ai_config_suggestion and isinstance(ai_config_suggestion.get('parameters'), dict):
-        nested_params = ai_config_suggestion.pop('parameters')
-        ai_config_suggestion.update(nested_params)
-
-    # Sanitize AI-suggested numeric parameters to prevent validation errors
-    def sanitize_param(value, p_min, p_max, p_default, is_float=False):
-        try:
-            num_val = float(value) if is_float else int(value)
-            if p_min <= num_val <= p_max:
-                return num_val
-            logger.warning(f"AI suggested parameter value {num_val} is outside of the acceptable range [{p_min}, {p_max}]. Clamping value.")
-            return max(p_min, min(num_val, p_max)) # Clamp to range
-        except (ValueError, TypeError):
-            return p_default
-
-    if 'MAX_DD_PER_CYCLE' in ai_config_suggestion:
-        dd = ai_config_suggestion['MAX_DD_PER_CYCLE']
-        if isinstance(dd, (int, float)) and dd >= 1.0:
-            logger.warning(f"AI suggested an invalid MAX_DD_PER_CYCLE >= 1 ({dd}). Interpreting as a percentage and scaling to {dd/100.0}.")
-            dd = dd / 100.0
-        ai_config_suggestion['MAX_DD_PER_CYCLE'] = sanitize_param(dd, 0.05, 0.9, 0.25, is_float=True)
-
-    if 'LOOKAHEAD_CANDLES' in ai_config_suggestion:
-        ai_config_suggestion['LOOKAHEAD_CANDLES'] = sanitize_param(ai_config_suggestion['LOOKAHEAD_CANDLES'], 10, 500, 150)
-
-    if 'OPTUNA_TRIALS' in ai_config_suggestion:
-        ai_config_suggestion['OPTUNA_TRIALS'] = sanitize_param(ai_config_suggestion['OPTUNA_TRIALS'], 10, 150, 30)
-
-    current_config.update(ai_config_suggestion)
-    # --- END OF CHECKS & SANITIZATION ---
-
-    chosen_strategy_features = playbook.get(current_config['strategy_name'], {}).get('features', [])
-    if not chosen_strategy_features:
-        logger.warning(f"Strategy '{current_config['strategy_name']}' not in playbook. Falling back to TrendFollower.")
-        current_config['strategy_name'] = 'TrendFollower'
-        chosen_strategy_features = playbook.get('TrendFollower', {}).get('features', [])
-
-    if 'selected_features' not in current_config or not isinstance(current_config.get('selected_features'), list):
-        current_config['selected_features'] = []
-
-    current_config['selected_features'] = [feat for feat in current_config['selected_features'] if feat in chosen_strategy_features]
-    if not current_config['selected_features']:
-        default_feature_count = min(len(chosen_strategy_features), 5)
-        current_config['selected_features'] = chosen_strategy_features[:default_feature_count]
-        logger.warning(f"AI-suggested features were empty or invalid for '{current_config['strategy_name']}'. Falling back to a default subset: {current_config['selected_features']}")
-
-    current_config['nickname'] = nickname_ledger.get(current_config['REPORT_LABEL'], "")
-    initial_config = ConfigModel(**current_config)
-
+    # Instantiate config early to get paths for logging
+    temp_config_for_paths = ConfigModel(**current_config, nickname=nickname_ledger.get(current_config['REPORT_LABEL'], ""))
     for handler in logger.handlers[:]:
         if isinstance(handler, logging.FileHandler): logger.removeHandler(handler)
-    fh = RotatingFileHandler(initial_config.LOG_FILE_PATH, maxBytes=10*1024*1024, backupCount=5)
+    fh = RotatingFileHandler(temp_config_for_paths.LOG_FILE_PATH, maxBytes=10*1024*1024, backupCount=5)
     fh.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - [%(levelname)s] - %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
+    # --- Data Loading and Dynamic Setup ---
+    data_by_tf, detected_tfs = DataLoader(temp_config_for_paths).load_and_parse_data(filenames=os.listdir(temp_config_for_paths.BASE_PATH))
+    if not data_by_tf: return
+
+    timeframe_roles = determine_timeframe_roles(detected_tfs)
+    fe = FeatureEngineer(temp_config_for_paths, timeframe_roles)
+    df_featured = fe.create_feature_stack(data_by_tf)
+    if df_featured.empty: return
+
+    # --- AI Pre-flight Check ---
+    health_report = {}
+    if is_continuous:
+        health_report = perform_strategic_review(framework_history)
+    
+    ai_config_suggestion = gemini_analyzer.get_pre_flight_config(
+        framework_history, playbook, health_report, [], current_config, exploration_rate=0.25
+    )
+    
+    if 'parameters' in ai_config_suggestion and isinstance(ai_config_suggestion.get('parameters'), dict):
+        nested_params = ai_config_suggestion.pop('parameters')
+        ai_config_suggestion.update(nested_params)
+
+    # --- AI Parameter Sanitization ---
+    def sanitize_param(value, p_min, p_max, p_default, is_float=False):
+        try:
+            num_val = float(value) if is_float else int(value)
+            if p_min <= num_val <= p_max: return num_val
+            logger.warning(f"AI suggested parameter value {num_val} is outside of range [{p_min}, {p_max}]. Clamping value.")
+            return max(p_min, min(num_val, p_max))
+        except (ValueError, TypeError): return p_default
+
+    if 'MAX_DD_PER_CYCLE' in ai_config_suggestion:
+        dd = ai_config_suggestion['MAX_DD_PER_CYCLE']
+        if isinstance(dd, (int, float)) and dd >= 1.0:
+            logger.warning(f"AI suggested MAX_DD_PER_CYCLE >= 1 ({dd}). Interpreting as percentage and scaling to {dd/100.0}.")
+            dd = dd / 100.0
+        ai_config_suggestion['MAX_DD_PER_CYCLE'] = sanitize_param(dd, 0.05, 0.9, 0.25, is_float=True)
+    if 'LOOKAHEAD_CANDLES' in ai_config_suggestion:
+        ai_config_suggestion['LOOKAHEAD_CANDLES'] = sanitize_param(ai_config_suggestion['LOOKAHEAD_CANDLES'], 10, 500, 150)
+    if 'OPTUNA_TRIALS' in ai_config_suggestion:
+        ai_config_suggestion['OPTUNA_TRIALS'] = sanitize_param(ai_config_suggestion['OPTUNA_TRIALS'], 10, 150, 30)
+
+    current_config.update(ai_config_suggestion)
+    
+    initial_config = ConfigModel(**current_config, nickname=nickname_ledger.get(current_config['REPORT_LABEL'], ""))
+    
     logger.info("==========================================================")
     logger.info("  STARTING END-TO-END MULTI-ASSET ML TRADING FRAMEWORK");
     logger.info("==========================================================")
     logger.info(f"-> Starting with configuration: {initial_config.REPORT_LABEL} (Nickname: {initial_config.nickname})")
     logger.info(f"-> MASTER STRATEGY SELECTED: {initial_config.strategy_name}")
 
-    files_to_process=[
-        "AUDUSD_Daily_202001060000_202506020000.csv","AUDUSD_H1_202001060000_202506021800.csv","AUDUSD_M15_202105170000_202506021830.csv",
-        "EURUSD_Daily_202001060000_202506020000.csv","EURUSD_H1_202001060000_202506021800.csv","EURUSD_M15_202106020100_202506021830.csv",
-        "GBPUSD_Daily_202001060000_202506020000.csv","GBPUSD_H1_202001060000_202506021800.csv","GBPUSD_M15_202106020015_202506021830.csv",
-        "USDCAD_Daily_202001060000_202506020000.csv","USDCAD_H1_202001060000_202506021800.csv","USDCAD_M15_202105170000_202506021830.csv"
-    ]
-    
-    try:
-        data_by_tf=DataLoader(initial_config).load_and_parse_data(filenames=files_to_process)
-        if not data_by_tf:return
-        fe=FeatureEngineer(initial_config);df_featured=fe.create_feature_stack(data_by_tf)
-        if df_featured.empty:return
-    except Exception as e:logger.critical(f"[FATAL] Initial setup failed: {e}",exc_info=True);return
+    # --- Dynamic Date Calculation ---
+    min_data_date = df_featured.index.min()
+    initial_training_period = pd.Timedelta(initial_config.TRAINING_WINDOW)
+    test_start_date = min_data_date + initial_training_period
+    max_date = df_featured.index.max()
+    retraining_dates = pd.date_range(start=test_start_date, end=max_date, freq=initial_config.RETRAINING_FREQUENCY)
+    logger.info(f"Dynamic walk-forward start date calculated: {test_start_date.date()}. Found {len(retraining_dates)} cycles.")
 
-    test_start_date=pd.to_datetime(initial_config.FORWARD_TEST_START_DATE);max_date=df_featured.index.max()
-    retraining_dates=pd.date_range(start=test_start_date,end=max_date,freq=initial_config.RETRAINING_FREQUENCY)
     all_trades,full_equity_curve,cycle_metrics,all_shap=[],[initial_config.INITIAL_CAPITAL],[],[]
     in_run_historical_cycles = []
 
     logger.info("-> Stage 3: Starting Adaptive Walk-Forward Analysis with AI Tuning...")
     for i,period_start_date in enumerate(retraining_dates):
-        config=ConfigModel(**current_config)
+        config = ConfigModel(**current_config) # Re-validate config each cycle
         logger.info(f"\n{'='*25} CYCLE {i+1}/{len(retraining_dates)}: {period_start_date.date()} {'='*25}")
-        logger.info(f"  - Using Config: LOOKAHEAD={config.LOOKAHEAD_CANDLES}, OPTUNA_TRIALS={config.OPTUNA_TRIALS}, MAX_DD_PER_CYCLE={config.MAX_DD_PER_CYCLE}")
-        logger.info(f"  - Features for this cycle: {config.selected_features}")
+        logger.info(f"  - Using Config: LOOKAHEAD={config.LOOKAHEAD_CANDLES}, OPTUNA_TRIALS={config.OPTUNA_TRIALS}, MAX_DD_PER_CYCLE={config.MAX_DD_PER_CYCLE:.2%}")
+        
+        chosen_strategy_features = playbook.get(config.strategy_name, {}).get('features', [])
+        all_available_features = [c for c in df_featured.columns if c not in ['Open','High','Low','Close','RealVolume','Symbol','target']]
+        
+        valid_features = [feat for feat in config.selected_features if feat in all_available_features]
+        if not valid_features:
+             default_feature_count = min(len(chosen_strategy_features), 5)
+             valid_features = [f for f in chosen_strategy_features[:default_feature_count] if f in all_available_features]
+             logger.warning(f"Feature list for cycle was invalid or empty. Falling back to: {valid_features}")
+        
+        logger.info(f"  - Features for this cycle: {valid_features}")
 
         train_end=period_start_date-pd.Timedelta(config.FORWARD_TEST_GAP)
         train_start=train_end-pd.Timedelta(config.TRAINING_WINDOW)
@@ -1241,7 +1271,7 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
         if df_train_labeled.empty or 'target' not in df_train_labeled.columns:
             cycle_metrics.append({'Cycle':i+1,'StartDate':period_start_date.date().isoformat(), 'Strategy': config.strategy_name, 'NumTrades':0,'WinRate':"N/A",'CyclePnL':"$0.00",'Status':"Skipped (Label Error)"});continue
 
-        trainer=ModelTrainer(config);training_result=trainer.train(df_train_labeled, feature_list=config.selected_features)
+        trainer=ModelTrainer(config);training_result=trainer.train(df_train_labeled, feature_list=valid_features)
         if training_result is None:
             cycle_metrics.append({'Cycle':i+1,'StartDate':period_start_date.date().isoformat(), 'Strategy': config.strategy_name, 'NumTrades':0,'WinRate':"N/A",'CyclePnL':"$0.00",'Status':"Failed (Training Error)"});continue
 
@@ -1250,7 +1280,7 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
 
         logger.info(f"  - Backtesting on out-of-sample data from {period_start_date.date()} to {test_end.date()}...")
         backtester=Backtester(config)
-        chunk_trades_df,chunk_equity,breaker_tripped,breaker_context = backtester.run_backtest_chunk(df_test_chunk,model,config.selected_features,best_threshold,initial_equity=full_equity_curve[-1])
+        chunk_trades_df,chunk_equity,breaker_tripped,breaker_context = backtester.run_backtest_chunk(df_test_chunk,model,valid_features,best_threshold,initial_equity=full_equity_curve[-1])
 
         cycle_pnl=0;cycle_win_rate="N/A"; status = "No Trades"
         if breaker_tripped: status = "Circuit Breaker"
@@ -1265,10 +1295,10 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
         cycle_results_for_ai={"cycle":i+1, "strategy_name": config.strategy_name, "objective_score":trainer.study.best_value if trainer.study else 0, "best_threshold":best_threshold, "cycle_pnl":cycle_pnl, "win_rate":cycle_win_rate, "num_trades":len(chunk_trades_df), "status": status, "current_params":{k:v for k,v in config.model_dump().items() if k in ['LOOKAHEAD_CANDLES','OPTUNA_TRIALS','selected_features','MAX_DD_PER_CYCLE']}, "shap_summary": trainer.shap_summary.head(10).to_dict() if trainer.shap_summary is not None else {}, "breaker_context": breaker_context}
         in_run_historical_cycles.append(cycle_results_for_ai)
 
-        suggested_params = gemini_analyzer.analyze_cycle_and_suggest_changes(in_run_historical_cycles, chosen_strategy_features)
+        suggested_params = gemini_analyzer.analyze_cycle_and_suggest_changes(in_run_historical_cycles, all_available_features)
 
         if suggested_params:
-            logger.info(f"  - AI suggests new parameters: {suggested_params}")
+            logger.info(f"  - AI suggests new parameters for next cycle: {suggested_params}")
             current_config.update(suggested_params)
             if is_continuous:
                 logger.info("  - Daemon Mode: Respecting API rate limits (5-minute delay between cycles)..."); time.sleep(300)
@@ -1278,7 +1308,6 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
     logger.info("\n==========================================================")
     logger.info("                                  WALK-FORWARD ANALYSIS COMPLETE");logger.info("==========================================================")
 
-    # --- SAVE RESULTS AND GENERATE REPORT ---
     run_summary = {"script_version": initial_config.REPORT_LABEL, "nickname": initial_config.nickname, "strategy_name": initial_config.strategy_name, "timestamp": initial_config.run_timestamp, "final_metrics": {}, "initial_config": {k: v for k, v in initial_config.model_dump().items() if k in ['LOOKAHEAD_CANDLES', 'MAX_DD_PER_CYCLE', 'OPTUNA_TRIALS', 'selected_features']}, "top_5_features": {}, "cycle_details": cycle_metrics}
     
     updated_champion = save_run_to_memory(initial_config, run_summary, framework_history)
@@ -1297,31 +1326,20 @@ def run_single_instance(fallback_config: Dict, framework_history: Dict, is_conti
         run_summary["top_5_features"] = aggregated_shap.head(5).to_dict().get('SHAP_Importance', {})
     
     try:
-        with open(initial_config.HISTORY_FILE_PATH, 'r') as f:
-            lines = f.readlines()
+        with open(initial_config.HISTORY_FILE_PATH, 'r') as f: lines = f.readlines()
         if lines:
             lines[-1] = json.dumps(run_summary) + '\n'
-            with open(initial_config.HISTORY_FILE_PATH, 'w') as f:
-                f.writelines(lines)
+            with open(initial_config.HISTORY_FILE_PATH, 'w') as f: f.writelines(lines)
     except Exception as e:
         logger.error(f"Could not finalize run summary in history file: {e}")
 
 def main():
-    # --- Daemon Mode Controls ---
-    # DEFAULT BEHAVIOR: Run once with a 5-second delay between cycles.
-    # To enable DAEMON mode, set either CONTINUOUS_RUN_HOURS > 0 or MAX_RUNS > 1.
-    # In DAEMON mode:
-    # - The delay between cycles is increased to 5 minutes to respect API rate limits.
-    # - A 10-second interruptible countdown appears between each full run.
-    # - The AI may attempt to synthesize new HYBRID strategies or perform a STRATEGIC REVIEW.
     CONTINUOUS_RUN_HOURS = 0
-    MAX_RUNS = 2    # Set > 1 to enable Daemon mode
-    # --- End Controls ---
+    MAX_RUNS = 1 
 
     fallback_config={
-        "BASE_PATH": os.getcwd(), "REPORT_LABEL": "ML_Framework_V132_AI_Guardrails",
-        "strategy_name": "TrendFollower",
-        "FORWARD_TEST_START_DATE": "2024-01-01", "INITIAL_CAPITAL": 100000.0,
+        "BASE_PATH": os.getcwd(), "REPORT_LABEL": "ML_Framework_V134_Dynamic_Timeframes",
+        "strategy_name": "TrendFollower", "INITIAL_CAPITAL": 100000.0,
         "CONFIDENCE_TIERS": {'ultra_high':{'min':0.8,'risk_mult':1.2,'rr':3.0},'high':{'min':0.7,'risk_mult':1.0,'rr':2.5},'standard':{'min':0.6,'risk_mult':0.8,'rr':2.0}},
         "BASE_RISK_PER_TRADE_PCT": 0.01, "SPREAD_PCTG_OF_ATR": 0.05, "SLIPPAGE_PCTG_OF_ATR": 0.02,
         "OPTUNA_TRIALS": 30, "TRAINING_WINDOW": '365D', "RETRAINING_FREQUENCY": '90D',
@@ -1350,8 +1368,7 @@ def main():
 
         if is_continuous:
             updated_playbook = check_and_create_hybrid(framework_history, playbook, analyzer, bootstrap_config.PLAYBOOK_FILE_PATH)
-            if updated_playbook:
-                playbook = updated_playbook
+            if updated_playbook: playbook = updated_playbook
 
         try:
             run_single_instance(fallback_config, framework_history, is_continuous, playbook, nickname_ledger)
@@ -1361,7 +1378,7 @@ def main():
                 logger.info("Attempting to continue to the next run after a 1-minute cooldown...")
                 time.sleep(60)
             else:
-                break # Exit if not in continuous mode
+                break
 
         if not is_continuous:
             logger.info("Single run complete. Exiting.")
@@ -1385,7 +1402,6 @@ def main():
                 time.sleep(1)
             sys.stdout.write("\n\n")
             logger.info("Countdown complete. Continuing daemon mode...")
-
         except KeyboardInterrupt:
             logger.info("\n\nDaemon stopped by user. Exiting gracefully.")
             break
@@ -1395,4 +1411,4 @@ if __name__ == '__main__':
         os.system("chcp 65001 > nul")
     main()
 
-# End_To_End_Advanced_ML_Trading_Framework_PRO_V132_AI_Guardrails.py
+# End_To_End_Advanced_ML_Trading_Framework_PRO_V134_Dynamic_Timeframes.py
