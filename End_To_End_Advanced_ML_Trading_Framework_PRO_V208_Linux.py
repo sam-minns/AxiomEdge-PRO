@@ -995,6 +995,16 @@ class FeatureEngineer:
         rs = gain / loss.replace(0, 1e-9)
         g_out['RSI']=100-(100/(1+rs))
         
+        # --- [FIX] Generate multiple RSI periods for PCA ---
+        if getattr(self.config, 'USE_PCA_REDUCTION', False) and hasattr(self.config, 'RSI_PERIODS_FOR_PCA'):
+            for period in self.config.RSI_PERIODS_FOR_PCA:
+                delta_pca = g_out['Close'].diff()
+                gain_pca = delta_pca.where(delta_pca > 0, 0).ewm(com=period - 1, adjust=False).mean()
+                loss_pca = -delta_pca.where(delta_pca < 0, 0).ewm(com=period - 1, adjust=False).mean()
+                rs_pca = gain_pca / loss_pca.replace(0, 1e-9)
+                g_out[f'rsi_{period}'] = 100 - (100 / (1 + rs_pca))
+        # --- [END FIX] ---
+
         g_out=self._calculate_adx(g_out,lookback)
         g_out=self._calculate_bollinger_bands(g_out,self.config.BOLLINGER_PERIOD)
         g_out=self._calculate_stochastic(g_out,self.config.STOCHASTIC_PERIOD)
