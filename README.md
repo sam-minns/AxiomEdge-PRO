@@ -38,19 +38,27 @@ The framework operates in a continuous loop, simulating a real-world adaptive tr
 * Required libraries. You will need to install the following:
 
     ```
-    numpy
-    pandas
-    xgboost
-    optuna
-    scikit-learn
-    pydantic
-    python-dotenv
-    requests
-    matplotlib
-    shap
-    # For optional GNN features:
-    # torch
-    # torch_geometric
+   pandas==2.1.4
+   matplotlib==3.8.4
+   scipy==1.12.0
+   scikit-learn==1.4.2
+   xgboost==3.0.2
+   optuna==4.3.0
+   pydantic==2.11.5
+   python-dotenv==1.1.0
+   requests==2.32.4
+   joblib==1.4.2
+   statsmodels==0.14.4
+   yfinance==0.2.63
+   shap==0.47.2
+   PyWavelets==1.8.0
+   arch==7.2.0
+   hurst==0.0.5
+   sktime==0.27.0
+   pyarrow==20.0.0
+   torch_geometric==2.5.3
+   tensorflow-cpu==2.19.0
+   torch==2.3.0+cpu
     ```
     You can typically install these via pip: `pip install numpy pandas xgboost ...`
 
