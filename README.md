@@ -1,3 +1,7 @@
+Of course. Here is the updated README file, incorporating the information about the new output logs and files from V209.
+
+-----
+
 # End-to-End AI-Powered Algorithmic Trading Framework
 
 This project is a sophisticated, fully autonomous Python framework for developing, backtesting, and deploying machine learning-based trading strategies. Its core feature is the integration of a Large Language Model (LLM) as a dynamic "AI Strategist" that actively manages the entire trading process, from initial setup to cycle-over-cycle adaptation and advanced failure recovery.
@@ -94,20 +98,22 @@ The script can be configured to run once or in a continuous "daemon" mode for on
 
 ## Framework Output
 
-The script generates several important files inside a `Results/` directory:
+The script generates several important files and directories:
 
-  * **Run-Specific Folder**: A unique folder is created for each run (e.g., `Andromeda_V209/`) containing:
-      * `_report.txt`: A detailed text-based performance report.
-      * `_equity_curve.png`: A plot of the walk-forward equity curve.
-      * `_shap_summary.png`: A feature importance plot from the aggregated SHAP values.
-      * `_model.json`: The final trained XGBoost model from the last cycle.
-      * `_run.log`: A detailed log of the entire run.
-  * **champion.json**: A JSON file containing the configuration and final metrics of the best-performing run to date (highest MAR ratio).
-  * **historical\_runs.jsonl**: A log file where each line is a JSON object summarizing a completed run. This serves as the framework's long-term memory.
-  * **strategy\_playbook.json**: A dynamic JSON file defining the available strategies, their descriptions, and default feature sets.
-  * **nickname\_ledger.json**: Stores the AI-generated codenames for each script version.
-
-A `Cache/` directory will also be created to store feature data for faster subsequent runs.
+  * **`Results/` directory**: Contains all primary outputs for a run.
+      * **Run-Specific Folder**: A unique folder is created for each run (e.g., `Andromeda_V209/`) containing:
+          * `_report.txt`: A detailed text-based performance report.
+          * `_equity_curve.png`: A plot of the walk-forward equity curve.
+          * `_shap_summary.png`: A feature importance plot from the aggregated SHAP values.
+          * `_model.json`: The final trained XGBoost model from the last cycle.
+          * `_run.log`: A detailed log of the entire run, including actions from the new intervention systems.
+      * `champion.json`: A JSON file containing the configuration and final metrics of the best-performing run to date (highest MAR ratio).
+      * `historical_runs.jsonl`: A log file where each line is a JSON object summarizing a completed run. This serves as the framework's long-term memory.
+      * `strategy_playbook.json`: A dynamic JSON file defining the available strategies, their descriptions, and default feature sets.
+      * `nickname_ledger.json`: Stores the AI-generated codenames for each script version.
+  * **`Cache/` directory**: This new directory is created in the project's base path to store caching files.
+      * **`feature_cache.parquet`**: Stores the main DataFrame with all engineered features in the efficient `.parquet` format. This allows the framework to skip recalculation on subsequent runs.
+      * **`feature_cache_metadata.json`**: Acts as a "fingerprint" with metadata (file sizes, parameters) to validate the cache. The cache is only used if this fingerprint matches the current run's setup.
 
 ## Data File Requirements
 
@@ -142,16 +148,16 @@ The file should contain standard OHLC (Open, High, Low, Close) data. The script 
 
 ### Summary Table
 
-| Requirement | Details                                                              | Example(s)                                    |
-| :---------- | :------------------------------------------------------------------- | :-------------------------------------------- |
-| **Location** | Root directory of the framework                                      | `/home/user/ml_framework/`                    |
-| **Naming** | `SYMBOL_TIMEFRAME.extension`                                         | `EURUSD_H1.csv`, `AAPL_D1.txt`                |
-| **Extension** | `.csv` or `.txt`                                                     | `data.csv`, `data.txt`                        |
-| **Columns** | Must contain OHLC and Timestamp data. Volume is optional.          | `Date, Time, Open, High, Low, Close, Volume`  |
+| Requirement | Details | Example(s) |
+| :--- | :--- | :--- |
+| **Location** | Root directory of the framework | `/home/user/ml_framework/` |
+| **Naming** | `SYMBOL_TIMEFRAME.extension` | `EURUSD_H1.csv`, `AAPL_D1.txt` |
+| **Extension** | `.csv` or `.txt` | `data.csv`, `data.txt` |
+| **Columns** | Must contain OHLC and Timestamp data. Volume is optional. | `Date, Time, Open, High, Low, Close, Volume` |
 
 ## License
 
-This project is released under a permissive GPL 3.0 license. While you are free to use, modify, and distribute this software, it would be nice to be acknowledged for the original code in any further developments or public-facing projects that build upon it. A simple credit or link back to the original repository is greatly appreciated.
+This project is released under a GPL 3.0 permissive license. While you are free to use, modify, and distribute this software, it would be nice to be acknowledged for the original code in any further developments or public-facing projects that build upon it. A simple credit or link back to the original repository is greatly appreciated.
 
 ## ⚠️ Disclaimer
 
