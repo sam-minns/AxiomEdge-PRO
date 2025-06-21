@@ -33,7 +33,7 @@ The framework operates in a continuous loop, simulating a real-world adaptive tr
 ## Getting Started
 
 ### 1. Prerequisites
-* Python 3.8+
+* (Recommended) Python 3.10 or 3.12 
 * A Google Gemini API Key.
 * Required libraries. You will need to install the following:
 
