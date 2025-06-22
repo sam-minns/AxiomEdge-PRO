@@ -5,7 +5,7 @@
 
 This project is a sophisticated, fully autonomous Python framework for developing, backtesting, and deploying machine learning-based trading strategies. Its core feature is the integration of a Large Language Model (LLM) as a dynamic "AI Strategist" that actively manages the entire trading process, from initial setup to cycle-over-cycle adaptation and advanced failure recovery.
 
-The framework is built around a robust walk-forward engine, ensuring that strategies are tested out-of-sample in a manner that closely simulates live trading conditions. It is designed for resilience, adaptability, and continuous learning, with recent V209 updates introducing intelligent caching for dramatically faster performance and a sophisticated early intervention system for smarter failure handling.
+The framework is built around a robust walk-forward engine, ensuring that strategies are tested out-of-sample in a manner that closely simulates live trading conditions. It is designed for resilience, adaptability, and continuous learning, with recent v210 updates introducing intelligent caching for dramatically faster performance and a sophisticated early intervention system for smarter failure handling.
 
 ## 🤖 Key Features
 
@@ -90,7 +90,7 @@ Place your historical data files (.csv or .txt) in the root directory. The frame
 Execute the script from your terminal:
 
 ```bash
-python End_To_End_Advanced_ML_Trading_Framework_PRO_V209_Linux.py
+python End_To_End_Advanced_ML_Trading_Framework_PRO_v210_Linux.py
 ```
 
 The script can be configured to run once or in a continuous "daemon" mode for ongoing research by adjusting the `CONTINUOUS_RUN_HOURS` and `MAX_RUNS` variables in the `main()` function.
@@ -100,7 +100,7 @@ The script can be configured to run once or in a continuous "daemon" mode for on
 The script generates several important files and directories:
 
   * **`Results/` directory**: Contains all primary outputs for a run.
-      * **Run-Specific Folder**: A unique folder is created for each run (e.g., `Andromeda_V209/`) containing:
+      * **Run-Specific Folder**: A unique folder is created for each run (e.g., `Andromeda_v210/`) containing:
           * `_report.txt`: A detailed text-based performance report.
           * `_equity_curve.png`: A plot of the walk-forward equity curve.
           * `_shap_summary.png`: A feature importance plot from the aggregated SHAP values.
