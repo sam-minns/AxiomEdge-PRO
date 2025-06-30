@@ -7,6 +7,21 @@ This project is a sophisticated, fully autonomous Python framework for developin
 
 The framework is built around a robust walk-forward engine, ensuring that strategies are tested out-of-sample in a manner that closely simulates live trading conditions. It is designed for resilience, adaptability, and continuous learning, with recent v210 updates introducing intelligent caching for dramatically faster performance and a sophisticated early intervention system for smarter failure handling.
 
+Minimum System Requirements:
+4 Cores
+4 Threads
+8gb RAM
+256Mb HDD
+
+Dataset Size Tested:
+
+4 assets
+3 timeframes (M15, H1, D1)
+5 years of data per asset
+Combined hourly data: 134,656 rows
+Combined 15-minute data: 400,692 rows
+Combined daily data: 5,612 rows
+
 ## 🤖 Key Features
 
   * **LLM-Powered Strategy**: Utilizes Google's Gemini models to make high-level strategic decisions, replacing hard-coded logic with dynamic, context-aware reasoning.
@@ -45,6 +60,7 @@ A Google Gemini API Key.
 Required libraries. You will need to install the following:
 
 ```
+numpy==1.26.0
 pandas==2.1.4
 matplotlib==3.8.4
 scipy==1.12.0
@@ -62,11 +78,19 @@ PyWavelets==1.8.0
 arch==7.2.0
 hurst==0.0.5
 sktime==0.27.0
-pyarrow==20.0.0
 torch_geometric==2.5.3
-tensorflow-cpu==2.19.0
-torch==2.3.0+cpu
+pyarrow==20.0.0
+psutil=7.0.0
+trexselector==0.6.9
+pykalman==0.10.1
 ```
+
+Install Separately:
+
+```
+pip install torch==2.3.0+cpu --index-url https://download.pytorch.org/whl/cpu
+```
+
 
 You can typically install these via pip: `pip install numpy pandas xgboost ...`
 
