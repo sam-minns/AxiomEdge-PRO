@@ -8,13 +8,14 @@ This project is a sophisticated, fully autonomous Python framework for developin
 The framework is built around a robust walk-forward engine, ensuring that strategies are tested out-of-sample in a manner that closely simulates live trading conditions. It is designed for resilience, adaptability, and continuous learning, with recent v210 updates introducing intelligent caching for dramatically faster performance and a sophisticated early intervention system for smarter failure handling.
 
 Minimum System Requirements:
-4 Cores
-4 Threads
-8gb RAM
-256Mb HDD
+(What AxiomEdge has been tested on)
+* 4 Cores
+* 4 Threads
+* 8gb RAM
+* 256Mb HDD
 
 Dataset Size Tested:
-
+(The system requirements will need to increase with more data or features)
  * 4 assets
  * 3 timeframes (M15, H1, D1)
  * 5 years of data per asset
