@@ -15,12 +15,12 @@ Minimum System Requirements:
 
 Dataset Size Tested:
 
- * **4 assets
- * **3 timeframes (M15, H1, D1)
- * **5 years of data per asset
- * **Combined hourly data: 134,656 rows
- * **Combined 15-minute data: 400,692 rows
- * **Combined daily data: 5,612 rows
+ * 4 assets
+ * 3 timeframes (M15, H1, D1)
+ * 5 years of data per asset
+ * Combined hourly data: 134,656 rows
+ * Combined 15-minute data: 400,692 rows
+ * Combined daily data: 5,612 rows
 
 ## 🤖 Key Features
 
