@@ -185,4 +185,16 @@ This project is released under a GPL 3.0 permissive license. While you are free 
 
 ## ⚠️ Disclaimer
 
+## Updates
+The framework will use a modular approach with Gemini AI as an architectural shift to collect data from various points to improve its systems.
+It now operates like a sophisticated, self-monitoring system, using its own historical data to learn, adapt, and proactively optimize its performance.
+
+Key Concepts:
+
+1.  Centralized Telemetry Collector: A new 'TelemetryCollector' class will act as a central data repository, similar to the Mist AI cloud. It will gather structured data from all framework components (which will be treated as microservices) at the end of each cycle.
+
+2.  Enhanced AI Analysis: The 'GeminiAIAnalyzer' will be upgraded to consume the rich, historical data from the TelemetryCollector. This allows for deep, Mavis-style root cause analysis, moving from reactive failure handling to proactive, intelligent decision-making.
+
+3.  Proactive Optimisation: By analsing the complete historical telemetry, the AI can identify recurring patterns, performance degradation, and suboptimal configurations, leading to more effective strategic interventions.
+
 This is an experimental framework for research purposes only. It is not financial advice. Trading financial markets involves substantial risk, and you can lose all of your invested capital. Past performance is not indicative of future results. Do not run this framework with real money without fully understanding the code and the risks involved.
