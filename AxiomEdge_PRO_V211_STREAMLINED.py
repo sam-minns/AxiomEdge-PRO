@@ -105,6 +105,14 @@ except ImportError:
 # --- DIAGNOSTICS & LOGGING SETUP ---
 logger = logging.getLogger("ML_Trading_Framework")
 
+# --- NEW: Custom Logging Filter for Cleaner Console Output ---
+class ConsoleTradeStatusFilter(logging.Filter):
+    """This filter prevents trade status updates (e.g., "Opened", "Closed") from being printed to the console
+    by the standard logger, allowing a custom print statement to show them on a single, updating line."""
+    def filter(self, record):
+        # If the 'is_trade_status' attribute exists and is True, block the record from this handler.
+        return not getattr(record, 'is_trade_status', False)
+
 # --- GNN Specific Imports (requires PyTorch, PyG) ---
 try:
     import torch
@@ -153,6 +161,9 @@ def _setup_logging(log_file_path: str, report_label: str):
     # Create a handler for console output
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO) # Console shows INFO and above
+
+    # --- APPLY THE CUSTOM FILTER TO THE CONSOLE HANDLER ---
+    ch.addFilter(ConsoleTradeStatusFilter())
 
     # Create a handler for file output
     # Ensure the directory for the log file exists
@@ -302,6 +313,16 @@ class OperatingState(Enum):
     DRAWDOWN_CONTROL = "Drawdown Control"
     OPPORTUNISTIC_SURGE = "Opportunistic Surge"
     MAINTENANCE_DORMANCY = "Maintenance Dormancy"
+    STRATEGY_ROTATION = "Strategy Rotation"
+    PROFIT_PROTECTION = "Profit Protection"
+    LIQUIDITY_CRUNCH = "Liquidity Crunch"
+    NEWS_SENTIMENT_ALERT = "News Sentiment Alert"
+    VOLATILITY_SPIKE = "Volatility Spike"
+    ALGO_CALIBRATION = "Algo Calibration"
+    MARKET_NEUTRAL = "Market Neutral"
+    CAPITAL_REALLOCATION = "Capital Reallocation"
+    RESEARCH_MODE = "Research Mode"
+    COMPLIANCE_LOCKDOWN = "Compliance Lockdown"
 # ------------------------------------
 
 class EarlyInterventionConfig(BaseModel):
@@ -320,7 +341,7 @@ class ConfigModel(BaseModel):
     operating_state: OperatingState = OperatingState.CONSERVATIVE_BASELINE
     
     # UPDATED: Added 'pca' as a feature selection option
-    FEATURE_SELECTION_METHOD: str = 'pca' # Options: 'trex', 'mutual_info', 'pca'
+    FEATURE_SELECTION_METHOD: str # Options = 'trex', 'mutual_info', 'pca'
 
     # --- AI & Optimization Parameters ---
     OPTUNA_TRIALS: conint(gt=0) = 75
@@ -366,30 +387,42 @@ class ConfigModel(BaseModel):
     STATE_BASED_CONFIG: Dict[OperatingState, Dict[str, Any]] = Field(default_factory=lambda: {
         OperatingState.CONSERVATIVE_BASELINE: {
             "max_dd_per_cycle": 0.15, "base_risk_pct": 0.0075, "max_concurrent_trades": 2,
-            "optimization_objective": ["maximize_f1", "maximize_log_trades"],
+            # MODIFIED: Optimize for Calmar Ratio instead of F1 Score
+            "optimization_objective": ["maximize_calmar", "maximize_log_trades"], 
             "min_f1_gate": 0.40
         },
         OperatingState.AGGRESSIVE_EXPANSION: {
             "max_dd_per_cycle": 0.30, "base_risk_pct": 0.015, "max_concurrent_trades": 5,
-            "optimization_objective": ["maximize_pnl", "maximize_log_trades"],
+            "optimization_objective": ["maximize_calmar", "maximize_log_trades"],
             "min_f1_gate": 0.42
         },
         OperatingState.DRAWDOWN_CONTROL: {
             "max_dd_per_cycle": 0.10, "base_risk_pct": 0.005, "max_concurrent_trades": 1,
-            "optimization_objective": ["maximize_sortino", "minimize_trades"],
+            "optimization_objective": ["maximize_calmar", "minimize_trades"],
             "min_f1_gate": 0.38
         },
-        OperatingState.OPPORTUNISTIC_SURGE: {
+        # --- Market-Condition States ---
+        OperatingState.VOLATILITY_SPIKE: {
             "max_dd_per_cycle": 0.20, "base_risk_pct": 0.0125, "max_concurrent_trades": 3,
-            "optimization_objective": ["maximize_pnl", "minimize_trades"],
-            "min_f1_gate": 0.40
+            "optimization_objective": ["maximize_f1", "maximize_log_trades"], "min_f1_gate": 0.40
         },
-        OperatingState.MAINTENANCE_DORMANCY: {
-            "max_dd_per_cycle": 0.05, "base_risk_pct": 0.0, "max_concurrent_trades": 0,
-            "optimization_objective": ["maximize_f1", "minimize_trades"],
-            "min_f1_gate": 0.99
-        }
+        OperatingState.LIQUIDITY_CRUNCH: {
+            "max_dd_per_cycle": 0.07, "base_risk_pct": 0.0025, "max_concurrent_trades": 1,
+            "optimization_objective": ["maximize_f1_trades_only", "minimize_trades"], "min_f1_gate": 0.50
+        },
+        OperatingState.NEWS_SENTIMENT_ALERT: {
+            "max_dd_per_cycle": 0.10, "base_risk_pct": 0.004, "max_concurrent_trades": 1,
+            "optimization_objective": ["maximize_f1_trades_only", "minimize_trades"], "min_f1_gate": 0.45
+        },
+        # --- Manual / Externally-Triggered States (Dormant Trading) ---
+        OperatingState.MAINTENANCE_DORMANCY: { "max_dd_per_cycle": 0.05, "base_risk_pct": 0.0, "max_concurrent_trades": 0, "optimization_objective": ["maximize_f1", "minimize_trades"], "min_f1_gate": 0.99 },
+        OperatingState.ALGO_CALIBRATION: { "max_dd_per_cycle": 0.05, "base_risk_pct": 0.0, "max_concurrent_trades": 0, "optimization_objective": ["maximize_f1", "minimize_trades"], "min_f1_gate": 0.99 },
+        OperatingState.CAPITAL_REALLOCATION: { "max_dd_per_cycle": 0.05, "base_risk_pct": 0.0, "max_concurrent_trades": 0, "optimization_objective": ["maximize_f1", "minimize_trades"], "min_f1_gate": 0.99 },
+        OperatingState.RESEARCH_MODE: { "max_dd_per_cycle": 0.05, "base_risk_pct": 0.0, "max_concurrent_trades": 0, "optimization_objective": ["maximize_f1", "minimize_trades"], "min_f1_gate": 0.99 },
+        OperatingState.COMPLIANCE_LOCKDOWN: { "max_dd_per_cycle": 0.05, "base_risk_pct": 0.0, "max_concurrent_trades": 0, "optimization_objective": ["maximize_f1", "minimize_trades"], "min_f1_gate": 0.99 },
+        OperatingState.MARKET_NEUTRAL: { "max_dd_per_cycle": 0.10, "base_risk_pct": 0.006, "max_concurrent_trades": 2, "optimization_objective": ["maximize_f1_trades_only", "minimize_trades"], "min_f1_gate": 0.50 }
     })
+    
     CONFIDENCE_TIERS: Dict[str, Dict[str, Any]] = Field(default_factory=lambda: {
             'ultra_high': {'min': 0.80, 'risk_mult': 1.2, 'rr': 2.5},
             'high':       {'min': 0.70, 'risk_mult': 1.0, 'rr': 2.0},
@@ -426,7 +459,35 @@ class ConfigModel(BaseModel):
         'NDX100_H1':     {'normal_pips': 18.0, 'volatile_pips': 55.0},
         'NDX100_Daily':  {'normal_pips': 16.0, 'volatile_pips': 50.0},
     })
-    CONTRACT_SIZE: confloat(gt=0) = 100000.0
+    
+    ASSET_CONTRACT_SIZES: Dict[str, float] = Field(default_factory=lambda: {
+        'default': 100000.0,     # Default for Forex pairs
+        'XAUUSD': 100.0,         # Gold (1 contract = 100 ounces)
+        'XAGUSD': 5000.0,        # Silver (1 contract = 5,000 ounces)
+        'US30': 1.0,             # Dow Jones Index CFD
+        'NDX100': 1.0,           # NASDAQ 100 Index CFD
+        'SPX500': 1.0,           # S&P 500 Index CFD
+        'GER40': 1.0,            # DAX 40 Index
+        'UK100': 1.0,            # FTSE 100 Index
+        'BTCUSD': 1.0,           # Bitcoin
+        'ETHUSD': 1.0,           # Ethereum
+        'WTI': 1000.0,           # Crude Oil Futures
+        'NGAS': 10000.0,         # Natural Gas Futures
+        'ZN': 100000.0,          # 10-Year T-Note Futures
+
+        # Options (Equity & ETF)
+        'options_default': 100.0,  # 1 option contract typically = 100 shares
+
+        # Index Options (SPX, NDX, RUT etc.)
+        'SPX': 100.0,              # S&P 500 Index Options
+        'NDX': 100.0,              # NASDAQ 100 Index Options
+        'RUT': 100.0,              # Russell 2000 Index Options
+
+        # Mini Options (rare, but exist for certain stocks)
+        'mini_options': 10.0,      # Mini options = 10 shares per contract
+    })
+
+    
     LEVERAGE: conint(gt=0) = 30
     MIN_LOT_SIZE: confloat(gt=0) = 0.01
     LOT_STEP: confloat(gt=0) = 0.01
@@ -468,6 +529,9 @@ class ConfigModel(BaseModel):
     KAMA_REGIME_SLOW: conint(gt=1) = 66
     AUTOCORR_LAG: conint(gt=0) = 10
     HURST_EXPONENT_WINDOW: conint(ge=100) = 100
+    RSI_MSE_PERIOD: conint(gt=1) = 14
+    RSI_MSE_SMA_PERIOD: conint(gt=1) = 5
+    RSI_MSE_WINDOW: conint(gt=1) = 14
     
     # --- GNN Specific Parameters ---
     GNN_EMBEDDING_DIM: conint(gt=0) = 8
@@ -798,6 +862,48 @@ class GeminiAnalyzer:
         logger.error("!! CRITICAL JSON PARSE FAILURE !! No valid JSON dictionary could be decoded from the AI response.")
         return {}
 
+    def get_contract_sizes_for_assets(self, symbols: List[str]) -> Dict[str, float]:
+        """
+        Uses the Gemini API to find standard contract sizes for a list of financial symbols.
+        """
+        logger.info(f"-> Engaging AI to determine contract sizes for {len(symbols)} asset(s)...")
+
+        prompt = (
+            "You are an expert on financial market specifications. Your task is to provide the standard contract size for **one standard lot** for a list of trading symbols.\n\n"
+            f"**SYMBOLS TO DEFINE:**\n{json.dumps(symbols, indent=2)}\n\n"
+            "**INSTRUCTIONS:**\n"
+            "1. For each symbol, provide the contract size in its base units.\n"
+            "2. Respond ONLY with a single, valid JSON object that maps each symbol string to its contract size as a number (float or int).\n\n"
+            "**EXAMPLES OF STANDARD CONTRACT SIZES:**\n"
+            "- **Forex (e.g., 'EURUSD', 'GBPUSD')**: `100000.0` (for 100,000 units of the base currency).\n"
+            "- **Gold ('XAUUSD')**: `100.0` (for 100 troy ounces).\n"
+            "- **Indices ('US30', 'NDX100', 'SPX500')**: `1.0` (representing 1 unit of the index for a standard CFD).\n"
+            "- **Crude Oil ('CL=F', 'WTI')**: `1000.0` (for 1,000 barrels).\n\n"
+            "**EXAMPLE JSON RESPONSE:**\n"
+            "```json\n"
+            "{\n"
+            '  "EURUSD": 100000.0,\n'
+            '  "XAUUSD": 100.0,\n'
+            '  "US30": 1.0\n'
+            "}\n"
+            "```"
+        )
+
+        response_text = self._call_gemini(prompt)
+        contract_sizes = self._extract_json_from_response(response_text)
+
+        if isinstance(contract_sizes, dict) and all(isinstance(k, str) and isinstance(v, (int, float)) for k, v in contract_sizes.items()):
+            logger.info("  - AI successfully defined contract sizes.")
+            # Ensure all requested symbols are in the response, with a sensible fallback
+            for symbol in symbols:
+                if symbol not in contract_sizes:
+                    contract_sizes[symbol] = 100000.0 # Default to Forex if missing
+                    logger.warning(f"  - AI did not provide a contract size for '{symbol}'. Using default Forex size (100000.0).")
+            return contract_sizes
+
+        logger.error("  - AI failed to return a valid contract size dictionary. Using fallback defaults.")
+        return {}    
+
     def establish_strategic_directive(self, historical_results: List[Dict], current_state: OperatingState) -> str:
         logger.info("-> Establishing strategic directive for the upcoming cycle...")
 
@@ -848,7 +954,9 @@ class GeminiAnalyzer:
     def get_comprehensive_initial_setup(self, script_version: str, ledger: Dict, memory: Dict, playbook: Dict, health_report: Dict, directives: List[Dict], data_summary: Dict, diagnosed_regime: str, regime_champions: Dict, correlation_summary_for_ai: str, master_macro_list: Dict, prime_directive_str: str) -> Dict:
         """
         Uses the prime directive to apply a highly prescriptive
-        prompt during baseline establishment to guarantee the first cycle attempts to trade.
+        prompt during baseline establishment, ensuring the first cycle trades, while
+        allowing for creative optimization in subsequent phases. It correctly leaves
+        the confidence gate to be determined dynamically by the trainer.
         """
         if not self.api_key_valid:
             logger.warning("No API key. Skipping AI-driven comprehensive setup.")
@@ -858,18 +966,29 @@ class GeminiAnalyzer:
         logger.info(f"  - PRIME DIRECTIVE FOR THIS RUN: {prime_directive_str}")
         asset_list_str = ", ".join(data_summary.get('assets_detected', []))
 
-        # Create a special, more prescriptive instruction set if establishing a baseline
+        # --- FIX: The instruction for the AI to choose a feature selection method has been REMOVED. ---
+        # This decision is now made by a separate, dedicated function call before this one.
+        feature_selection_instructions = ""
+        
+        # --- NEW INSTRUCTION FOR FILTERS ---
+        filter_instructions = (
+            "   - **Set `MIN_VOLATILITY_RANK`**: This filters trades based on market activity (0.0 to 1.0). To `ESTABLISH TRADING BASELINE`, consider a low value (e.g., 0.0 or 0.05) to permit trades in quiet markets. For `OPTIMIZE PERFORMANCE`, a higher value (e.g., 0.1 or 0.2) can avoid ranging periods."
+        )
+
         if "ESTABLISH TRADING BASELINE" in prime_directive_str:
             task_2_instructions = (
                 "   - **CRITICAL OBJECTIVE:** The priority is to execute trades. You MUST configure a model biased towards action.\n"
                 "   - **Strategy Choice:** Select a strategy known for higher trade frequency, like `BreakoutVolumeSpike` or `EmaCrossoverRsiFilter`.\n"
-                "   - **Confidence Gate:** To force trade attempts, you MUST set `USE_STATIC_CONFIDENCE_GATE` to `true` and propose a low `STATIC_CONFIDENCE_GATE` between 0.51 and 0.60.\n"
-                "   - **Labeling:** To ensure the model learns from trades, propose wide labeling quantiles (e.g., `LABEL_LONG_QUANTILE`: 0.85, `LABEL_SHORT_QUANTILE`: 0.15)."
+                f"{filter_instructions}\n"
+                "   - **Labeling:** To ensure the model learns from trades, propose wide labeling quantiles to create a very balanced dataset (e.g., `LABEL_LONG_QUANTILE`: 0.8, `LABEL_SHORT_QUANTILE`: 0.2)."
             )
         else: # Standard instructions for optimization phase
             task_2_instructions = (
-                "   - Analyze all context to select the best strategy and parameters from the playbook to maximize risk-adjusted returns."
+                "   - Analyze all context to select the best strategy and parameters from the playbook to maximize risk-adjusted returns.\n"
+                f"{filter_instructions}\n"
+                "   - **CRITICAL:** You should always consider using the available universal benchmark features (`relative_strength_vs_spy`, `correlation_with_spy`, `is_spy_bullish`) as they provide crucial market context. They can be combined with any strategy in the playbook to improve its performance."
             )
+        # --- END OF UPDATED INSTRUCTION BLOCK ---
 
         prompt = (
             "You are a Master Trading Strategist configuring a trading framework. Your goal is to produce a single JSON object containing the complete setup for the first run.\n\n"
@@ -877,7 +996,7 @@ class GeminiAnalyzer:
             "All of your choices below for strategy, features, and parameters MUST be optimized to achieve this single prime directive above all else.\n\n"
             "**TASK 1: DEFINE BROKER SIMULATION COSTS**\n"
             "   - Based on the asset list, populate `COMMISSION_PER_LOT` and a reasonable `SPREAD_CONFIG` dictionary.\n\n"
-            "**TASK 2: SELECT STRATEGY & PARAMETERS TO ACHIEVE THE PRIME DIRECTIVE**\n"
+            "**TASK 2: SELECT STRATEGY, FILTERS, & PARAMETERS TO ACHIEVE THE PRIME DIRECTIVE**\n"
             f"{task_2_instructions}\n"
             "   - Provide a unique `nickname` and `analysis_notes` justifying how your choices directly serve the Prime Directive.\n\n"
             "**TASK 3: SELECT MACROECONOMIC TICKERS**\n"
@@ -887,18 +1006,18 @@ class GeminiAnalyzer:
             "Respond ONLY with a single, valid JSON object.\n"
             "{\n"
             '  "strategy_name": "string",\n'
+            # --- The FEATURE_SELECTION_METHOD key has been removed from the required JSON structure for this prompt ---
+            '  "MIN_VOLATILITY_RANK": "float, // Value between 0.0 and 1.0",\n'
             '  "selected_features": ["list", "of", "strings"],\n'
             '  "nickname": "string",\n'
             '  "analysis_notes": "string",\n'
-            '  "USE_STATIC_CONFIDENCE_GATE": "boolean",\n'
-            '  "STATIC_CONFIDENCE_GATE": "float",\n'
             '  "TP_ATR_MULTIPLIER": "float",\n'
             '  "SL_ATR_MULTIPLIER": "float",\n'
             '  "LOOKAHEAD_CANDLES": "integer",\n'
             '  "LABEL_LONG_QUANTILE": "float",\n'
             '  "LABEL_SHORT_QUANTILE": "float",\n'
             '  "COMMISSION_PER_LOT": "float",\n'
-            '  "SPREAD_CONFIG": {},\n'
+            '  "SPREAD_CONFIG": { "SYMBOL": {"normal_pips": "float", "volatile_pips": "float"} },\n'
             '  "selected_macro_tickers": {} \n'
             "}\n\n"
             "--- CONTEXT FOR YOUR DECISION ---\n"
@@ -934,9 +1053,9 @@ class GeminiAnalyzer:
             f"**PRIME DIRECTIVE:** {prime_directive}\n\n"
             "**INSTRUCTIONS:**\n"
             "1.  **Align with the Prime Directive.** Your choice of quantiles MUST reflect the directive's goal.\n"
-            "    - If the directive is to **ESTABLISH TRADING BASELINE**, your goal is to increase trade frequency. This generally means choosing **less extreme quantiles** to create a more balanced dataset.\n"
+            "    - If the directive is to **ESTABLISH TRADING BASELINE**, your goal is to increase trade frequency. This generally means choosing **less extreme quantiles**.\n"
             "    - If the directive is to **OPTIMIZE PERFORMANCE**, your goal is to increase signal precision. This generally means choosing **more extreme quantiles**.\n"
-            "2.  **Analyze the Statistical Summary.** Use the `skew` and `kurtosis` values to inform your decision. For highly skewed data, you might consider asymmetric quantiles. For data with high kurtosis (fat tails), more extreme quantiles might be appropriate to capture only the strongest signals.\n"
+            "2.  **Analyze the Statistical Summary.** Use the `skew` and `kurtosis` values to inform your decision. For highly skewed data (e.g., |skew| > 0.5), you should consider asymmetric quantiles. For data with high kurtosis (e.g., > 3.0, indicating fat tails with more outliers), more extreme quantiles might be appropriate to capture only the strongest signals.\n"
             "3.  **Provide Your Recommendation and Justification.** Respond ONLY with a single, valid JSON object containing your two chosen quantile values and a brief justification for your choice in `analysis_notes`.\n\n"
             "--- DATA FOR YOUR ANALYSIS ---\n\n"
             f"**Statistical Summary of Signal Pressure:**\n{json.dumps(signal_pressure_summary, indent=2)}\n\n"
@@ -961,6 +1080,7 @@ class GeminiAnalyzer:
         
         logger.warning("  - AI failed to return valid quantiles. Will use framework defaults.")
         return {}
+              
     def determine_dynamic_f1_gate(self, optuna_summary: Dict, label_dist_summary: str, prime_directive: str) -> Dict:
         """
         Analyzes Optuna results and the strategic directive to set a dynamic F1 score
@@ -1002,69 +1122,48 @@ class GeminiAnalyzer:
 
     def analyze_cycle_and_suggest_changes(
         self,
-        historical_results: List[Dict],
-        strategy_details: Dict, # This will be the current config dump
+        historical_summary: str, # <-- Takes the new summary string
+        strategy_details: Dict,
         cycle_status: str,
-        shap_history: Dict[str, Any], # Can be pd.DataFrame or Dict of DFs
+        shap_history: Optional[pd.DataFrame],
         available_features: List[str],
         strategic_directive: str
     ) -> Dict:
+        """
+        [ENHANCED] Analyzes the entire performance history of the current run to make intelligent,
+        data-driven changes for the next cycle, including TP/SL and risk adjustments.
+        """
         if not self.api_key_valid: return {}
 
-        base_prompt_intro = "You are an expert trading model analyst and portfolio manager. Your goal is to make intelligent, data-driven changes to the trading model configuration to align with the current strategic directive."
+        logger.info("-> Engaging AI Portfolio Manager for end-of-cycle review...")
 
-        task_guidance = (
-            "**YOUR TASK:**\n"
-            "1.  **Review the `STRATEGIC DIRECTIVE`.** This is your most important instruction.\n"
-            "2.  **Analyze the `CYCLE STATUS` and `HISTORICAL RESULTS`.**\n"
-            "   - **SPECIAL RULE:** If `NumTrades` for the last cycle was `0` and the `STRATEGIC DIRECTIVE` is `BASELINE ESTABLISHMENT`, your primary suggestion MUST be to make the model *less* conservative (e.g., lower `STATIC_CONFIDENCE_GATE` or adjust `LABEL_LONG_QUANTILE` / `LABEL_SHORT_QUANTILE` to be less extreme).\n"
-            "3.  **Propose Standard Changes:** If the directive is to optimize, suggest changes to the current configuration that are aligned with the goal. Consider `TP_ATR_MULTIPLIER`, `SL_ATR_MULTIPLIER`, `LOOKAHEAD_CANDLES`, risk parameters, or feature refinement based on SHAP if available.\n"
-            "4.  **Propose Exploration (Optional):** If the `STRATEGIC DIRECTIVE` is `PERFORMANCE OPTIMIZATION` and you have a strong, research-backed hypothesis for a novel strategy that could outperform the current one, you can propose to invent a new one by returning `{\"action\": \"EXPLORE_NEW_STRATEGY\"}`. Use this option judiciously."
-        )
-
-        json_schema_definition = (
-            "### REQUIRED JSON RESPONSE STRUCTURE ###\n"
-            "// To propose exploring a new strategy, return: {\"action\": \"EXPLORE_NEW_STRATEGY\", \"analysis_notes\": \"Your reasoning...\"}\n"
-            "// To propose standard parameter changes, return a JSON object with the new parameters.\n"
-            "// If no changes are needed, return an empty JSON object: {}\n"
-            "{\n"
-            '  "analysis_notes": "str,            // Your detailed reasoning for the suggested changes, referencing the STRATEGIC DIRECTIVE.",\n'
-            '  "model_confidence_score": "int,    // Your 1-10 confidence in this configuration decision.",\n'
-            '  // ... and any other parameter from the ConfigModel you wish to change (e.g., "STATIC_CONFIDENCE_GATE", "TP_ATR_MULTIPLIER") OR the "action" key.\n'
-            "}\n"
-            "Respond ONLY with the JSON object.\n"
-        )
-        # SHAP history for multi-task model might be a dict of dataframes.
-        # Present it to the AI in a digestible format.
-        shap_summary_for_ai = "SHAP data not available or not applicable for this model."
-        if isinstance(shap_history, pd.DataFrame) and not shap_history.empty: # Single model SHAP
+        shap_summary_for_ai = "SHAP data not available for this cycle."
+        if shap_history is not None and not shap_history.empty:
              shap_summary_for_ai = shap_history.head(10).to_string()
-        elif isinstance(shap_history, dict) and shap_history: # Multi-task SHAP
-            shap_reports = []
-            for model_name, shap_df in shap_history.items():
-                if isinstance(shap_df, pd.DataFrame) and not shap_df.empty:
-                    shap_reports.append(f"  SHAP for '{model_name}':\n{shap_df.head(5).to_string()}")
-            if shap_reports:
-                shap_summary_for_ai = "\n".join(shap_reports)
-
-
-        data_context = (
-            f"--- DATA FOR YOUR ANALYSIS ---\n\n"
-            f"**A. CURRENT CYCLE STATUS:** `{cycle_status}`\n\n"
-            f"**B. CURRENT RUN - CYCLE-BY-CYCLE HISTORY:**\n{json.dumps(self._sanitize_dict(historical_results), indent=2)}\n\n"
-            f"**C. FEATURE IMPORTANCE HISTORY (SHAP values over time or for current models):**\n{shap_summary_for_ai}\n\n"
-            f"**D. CURRENT STRATEGY & AVAILABLE FEATURES:**\n`strategy_name`: {strategy_details.get('strategy_name')}\n`available_features`: {available_features}\n"
-            f"**E. CURRENT CONFIGURATION (Relevant Thresholds):**\n"
-            f"   - `STATIC_CONFIDENCE_GATE`: {strategy_details.get('STATIC_CONFIDENCE_GATE')}\n"
-            f"   - `LABEL_LONG_QUANTILE`: {strategy_details.get('LABEL_LONG_QUANTILE')}\n"
-            f"   - `LABEL_SHORT_QUANTILE`: {strategy_details.get('LABEL_SHORT_QUANTILE')}\n"
-        )
 
         prompt = (
-            f"{base_prompt_intro}\n\n"
-            f"{strategic_directive}\n\n"
-            f"{task_guidance}\n\n"
-            f"{json_schema_definition}\n\n{data_context}"
+            "You are an expert trading model analyst and portfolio manager. Your goal is to make a single, intelligent, data-driven change to the trading model's configuration for the next cycle to improve performance based on a full review of its history.\n\n"
+            f"**STRATEGIC DIRECTIVE:** {strategic_directive}\n\n"
+            f"**FULL PERFORMANCE HISTORY (Your Track Record):**\n{historical_summary}\n\n"
+            f"**FEATURE IMPORTANCE (SHAP from Last Cycle):**\n{shap_summary_for_ai}\n\n"
+            f"**CURRENT CONFIGURATION:**\n{json.dumps(strategy_details, indent=2)}\n\n"
+            "**YOUR TASK & AVAILABLE ACTIONS:**\n"
+            "1.  **Analyze your full history.** Do you see a pattern of improvement or degradation? Are circuit breakers common? Is the win rate stable?\n"
+            "2.  **Propose ONE targeted change.** Your goal is to fix the most obvious problem or seize the most obvious opportunity. Do not change everything at once.\n"
+            "3.  **Justify your decision** in `analysis_notes` by referencing specific cycles from your history.\n\n"
+            "**AVAILABLE PARAMETERS TO CHANGE:**\n"
+            "- `TP_ATR_MULTIPLIER`, `SL_ATR_MULTIPLIER`: Widen to let winners run, or tighten to protect capital.\n"
+            "- `LABEL_LONG_QUANTILE`, `LABEL_SHORT_QUANTILE`: Make them more/less extreme to adjust trade frequency and precision.\n"
+            "- `BASE_RISK_PER_TRADE_PCT`: Directly increase or decrease risk-taking.\n"
+            "- `USE_TP_LADDER`: If trades hit the first TP but then reverse, suggest turning the ladder off (`false`). If trades are stopping out just before a big move, suggest turning it on (`true`).\n\n"
+            "Respond ONLY with a JSON object containing the parameter you wish to change and your `analysis_notes`.\n"
+            "**Example Response:**\n"
+            "```json\n"
+            "{\n"
+            '  "TP_ATR_MULTIPLIER": 2.5,\n'
+            '  "analysis_notes": "Based on cycles 2 and 3 where trades had a positive PNL but low MAR ratio, I am increasing the TP_ATR_MULTIPLIER from 2.0 to 2.5 to allow winning trades more room to run, which should improve the risk/reward profile."\n'
+            "}\n"
+            "```"
         )
 
         response_text = self._call_gemini(prompt)
@@ -1091,6 +1190,9 @@ class GeminiAnalyzer:
         prompt = (
             "You are a portfolio manager performing model selection. You have a Pareto front of models from multi-objective optimization.\n\n"
             f"{strategic_directive}\n\n"
+            "**IMPORTANT CONTEXT ON SCORING:**\n"
+            "Some objectives are for minimization (e.g., 'minimize_trades'). To achieve this, their scores are **multiplied by -1**. \n"
+            "Therefore, for any objective that involves minimization, a **higher score (i.e., less negative)** means the original goal was met more successfully (fewer trades).\n\n"
             "**YOUR TASK:**\n"
             "Review the trials and the strategic directive. Select the single best trial that aligns with the current phase of the plan.\n\n"
             "**CRITICAL RULE FOR BASELINE ESTABLISHMENT:**\n"
@@ -1101,7 +1203,7 @@ class GeminiAnalyzer:
             "```json\n"
             "{\n"
             '  "selected_trial_number": "int, // The number of the trial you have chosen.",\n'
-            '  "analysis_notes": "str // Your reasoning, explicitly referencing the strategic directive and the critical rule."\n'
+            '  "analysis_notes": "str // Your reasoning, explicitly referencing the strategic directive and the scoring context."\n'
             "}\n"
             "```"
         )
@@ -1193,65 +1295,130 @@ class GeminiAnalyzer:
         response_text = self._call_gemini(prompt)
         return self._extract_json_from_response(response_text)        
 
-    def propose_strategic_intervention(self, failure_history: List[Dict], playbook: Dict, last_failed_strategy: str, quarantine_list: List[str], dynamic_best_config: Optional[Dict] = None) -> Dict:
+    def propose_alpha_features(self, base_features: List[str], strategy_name: str, diagnosed_regime: str) -> Dict[str, Dict[str, str]]:
+        """Engages the AI to invent new 'meta-features' based on existing base features, including a description."""
+        logger.info("-> Engaging AI to propose new alpha features with descriptions...")
         if not self.api_key_valid: return {}
-        logger.warning("! STRATEGIC INTERVENTION !: Current strategy has failed repeatedly. Engaging AI for a new path.")
 
-        is_quarantined = last_failed_strategy in quarantine_list
-        generative_option_prompt = ""
-        if is_quarantined:
-             generative_option_prompt = (
-                f"\n**OPTION C: INVENT A NEW STRATEGY (Generative)**\n"
-                f"   - The current strategy `{last_failed_strategy}` is quarantined. This is a chance to be creative.\n"
-                f"   - Propose a new hybrid strategy by combining elements of successful strategies with the concept of the failed one.\n"
-                f"   - To select this, respond with: `{{\"action\": \"invent_new_strategy\"}}`. The framework will then prompt you separately to define the new strategy."
-            )
-
-        available_playbook = { k: v for k, v in playbook.items() if k not in quarantine_list and not v.get("retired") and (GNN_AVAILABLE or not v.get("requires_gnn"))}
-        feature_selection_guidance = (
-            "**You MUST provide a `selected_features` list.** Start with a **small, targeted set of 4-6 features** from the playbook for the new strategy you choose. "
-            "The list MUST include at least TWO multi-timeframe context features (e.g., `DAILY_ctx_Trend`, `H1_ctx_SMA`)."
+        prompt = (
+            "You are a quantitative researcher tasked with creating novel alpha factors.\n\n"
+            f"**Context:**\n- **Strategy:** `{strategy_name}`\n"
+            f"- **Market Regime:** `{diagnosed_regime}`\n"
+            f"- **Available Base Features:**\n{json.dumps(base_features[:20], indent=2)}...\n\n"
+            "**Task:**\n"
+            "Based on the available features, invent 3-5 new 'meta-features'. For each new feature, provide a name, a Python lambda function string, and a concise description of its purpose.\n\n"
+            "**RULES:**\n"
+            "- The lambda function must start with `lambda row:` and use `row.get('feature', default_value)` for safety.\n"
+            "- Handle potential division by zero by adding a small epsilon (e.g., `(row.get('ATR', 0) + 1e-9)`) to denominators.\n\n"
+            "**Example Response Format (JSON only):**\n"
+            "```json\n"
+            "{\n"
+            '  "rsi_x_bbw": {\n'
+            '    "lambda": "lambda row: row.get(\\"RSI\\", 50) * row.get(\\"bollinger_bandwidth\\", 0)",\n'
+            '    "description": "Measures RSI momentum amplified by market volatility."\n'
+            '  },\n'
+            '  "adx_momentum_filter": {\n'
+            '    "lambda": "lambda row: row.get(\\"ADX\\", 20) * (1 if row.get(\\"momentum_20\\", 0) > 0 else -1)",\n'
+            '    "description": "Combines trend strength (ADX) with price momentum direction."\n'
+            '  }\n'
+            "}\n"
+            "```"
         )
-        base_prompt = (
-            f"You are a master strategist executing an emergency intervention. The current strategy, "
-            f"**`{last_failed_strategy}`**, has failed multiple consecutive cycles and is now in quarantine: {is_quarantined}.\n\n"
-            f"**RECENT FAILED HISTORY (for context):**\n{json.dumps(self._sanitize_dict(failure_history), indent=2)}\n\n"
-            f"**AVAILABLE STRATEGIES (PLAYBOOK - excluding quarantined {quarantine_list}):**\n{json.dumps(self._sanitize_dict(available_playbook), indent=2)}\n\n"
-        )
-        if dynamic_best_config:
-            best_strat_name = dynamic_best_config.get('final_params', {}).get('strategy_name', 'N/A')
-            best_strat_mar = dynamic_best_config.get('final_metrics', {}).get('mar_ratio', 0)
-            anchor_option_prompt = (
-                f"**OPTION A: REVERT TO PERSONAL BEST (The Anchor)**\n"
-                f"   - Revert to the most successful configuration from this run: **`{best_strat_name}`** (achieved a MAR Ratio of: {best_strat_mar:.2f}).\n"
-                f"   - This is a safe, data-driven reset to a proven state. This option weighs the safety of a proven configuration against the risk of exploration.\n"
-                f"   - To select this, respond with: `{{\"action\": \"revert\"}}`\n\n"
-                f"**OPTION B: EXPLORE A NEW STRATEGY**\n"
-                f"   - Propose a brand new strategy from the available playbook. **Prioritize Simplicity:** Strongly prefer a `complexity` of 'low' or 'medium' to return to a stable baseline.\n"
-                f"   - To select this, respond with the full JSON configuration for the new strategy (including `strategy_name`, `selected_features`, etc.). "
-                f"   - {feature_selection_guidance}\n"
-            )
-            prompt = (
-                f"{base_prompt}"
-                "**YOUR TASK: CHOOSE YOUR NEXT MOVE**\n\n"
-                f"{anchor_option_prompt}"
-                f"{generative_option_prompt}"
-            )
-        else:
-            explore_only_prompt = (
-                 "**CRITICAL INSTRUCTIONS:**\n"
-                f"1.  **CRITICAL CONSTRAINT:** The following strategies are in 'quarantine' due to recent, repeated failures. **YOU MUST NOT SELECT ANY STRATEGY FROM THIS LIST: {quarantine_list}**\n"
-                "2.  **Select a NEW, SIMPLER STRATEGY:** You **MUST** choose a *different* strategy from the available playbook that is NOT in the quarantine list. Prioritize strategies with a `complexity` of 'low' or 'medium'.\n"
-                f"3.  **Propose a Safe Starting Configuration:** Provide a reasonable and SAFE starting configuration for this new strategy. {feature_selection_guidance} Start with conservative values for thresholds (e.g., STATIC_CONFIDENCE_GATE: 0.75), `RETRAINING_FREQUENCY`: '90D', `MAX_DD_PER_CYCLE`: 0.15 (float), `RISK_PROFILE`: 'Medium', `OPTUNA_TRIALS`: 50.\n"
-            )
-            prompt = (
-                f"{base_prompt}"
-                f"{explore_only_prompt}\n"
-                "Respond ONLY with a valid JSON object for the new configuration, including `strategy_name` and `selected_features` and other relevant parameters like `STATIC_CONFIDENCE_GATE`."
-            )
+        
         response_text = self._call_gemini(prompt)
         suggestions = self._extract_json_from_response(response_text)
-        return suggestions
+        
+        # Updated validation for the new nested structure
+        if isinstance(suggestions, dict) and all(isinstance(v, dict) and 'lambda' in v and 'description' in v for v in suggestions.values()):
+            logger.info(f"  - AI successfully proposed {len(suggestions)} new alpha features with descriptions.")
+            return suggestions
+            
+        logger.error("  - AI failed to return a valid dictionary of alpha features with descriptions.")
+        return {}
+
+    def propose_feature_selection_method(self, num_features: int, num_samples: int, directive: str) -> Dict[str, str]:
+            """Asks the AI to choose the most appropriate feature selection method for the situation."""
+            logger.info("-> Engaging AI to choose optimal feature selection method...")
+            if not self.api_key_valid: return {}
+
+            prompt = (
+                "You are a data science expert optimizing a machine learning pipeline.\n\n"
+                f"**Context:**\n- **Available Features:** {num_features}\n"
+                f"- **Training Samples:** {num_samples}\n"
+                f"- **Strategic Directive:** `{directive}`\n\n"
+                "**Task:**\n"
+                "Based on the context, choose the most appropriate feature selection method from the following options: `trex`, `mutual_info`, `pca`.\n\n"
+                "- `trex`: Best for finding a small set of highly interactive and redundant features.\n"
+                "- `mutual_info`: Good for finding strong individual predictors without assuming linearity.\n"
+                "- `pca`: Best for reducing dimensionality when you have many correlated features and want to capture broad patterns.\n\n"
+                "Respond with a JSON object containing your choice and a justification.\n"
+                "**Example Response:**\n"
+                "```json\n"
+                "{\n"
+                '  "FEATURE_SELECTION_METHOD": "pca",\n'
+                '  "analysis_notes": "Given the high number of features and the directive to OPTIMIZE, PCA is best for creating robust components and reducing noise."\n'
+                "}\n"
+                "```"
+            )
+            response_text = self._call_gemini(prompt)
+            return self._extract_json_from_response(response_text)
+
+    def define_optuna_search_space(self, strategy_name: str, diagnosed_regime: str) -> Dict:
+            """Asks the AI to propose an optimal Optuna search space for the given context."""
+            logger.info("-> Engaging AI to define a dynamic hyperparameter search space...")
+            if not self.api_key_valid: return {}
+
+            prompt = (
+                "You are a machine learning engineer tuning an XGBoost model.\n\n"
+                f"**Context:**\n- **Strategy:** `{strategy_name}`\n"
+                f"- **Market Regime:** `{diagnosed_regime}`\n\n"
+                "**Task:**\n"
+                "Propose an optimal Optuna search space for `n_estimators`, `max_depth`, and `learning_rate`. The goal is to balance performance and training time.\n\n"
+                "**Example Response (JSON only):**\n"
+                "```json\n"
+                "{\n"
+                '  "n_estimators": {"type": "int", "low": 100, "high": 700, "step": 50},\n'
+                '  "max_depth": {"type": "int", "low": 3, "high": 6},\n'
+                '  "learning_rate": {"type": "float", "low": 0.01, "high": 0.2, "log": true}\n'
+                "}\n"
+                "```"
+            )
+            return self._extract_json_from_response(self._call_gemini(prompt))
+
+    def propose_strategic_intervention(self, failure_history: List[Dict], playbook: Dict, last_failed_strategy: str, quarantine_list: List[str], framework_history: Dict) -> Dict:
+        """
+        [ENHANCED] Engages the AI to invent a new strategy when an existing one is quarantined.
+        This is the primary self-correction mechanism for chronic strategy failure.
+        """
+        if not self.api_key_valid: return {}
+        logger.warning(f"! STRATEGIC INTERVENTION !: Strategy '{last_failed_strategy}' has failed repeatedly. Engaging AI to invent a replacement.")
+
+        # This call now directly asks the AI to create a new strategy, making it the core of the intervention
+        new_strategy_proposal = self.propose_new_playbook_strategy(
+            failed_strategy_name=last_failed_strategy,
+            playbook=playbook,
+            framework_history=framework_history
+        )
+        
+        if not new_strategy_proposal:
+            logger.error("AI failed to invent a new strategy. No intervention will be made for this cycle.")
+            return {}
+
+        # The AI now needs to provide a full starting configuration for its new invention
+        new_strategy_name = next(iter(new_strategy_proposal))
+        ai_response = {
+            "action": "invent_new_strategy",
+            "strategy_name": new_strategy_name,
+            "nickname": f"AI-Generated_{new_strategy_name}",
+            "analysis_notes": f"AI intervention: Invented new strategy '{new_strategy_name}' to replace failed strategy '{last_failed_strategy}'.",
+            "selected_features": new_strategy_proposal[new_strategy_name].get("selected_features", []),
+            "FEATURE_SELECTION_METHOD": "mutual_info", # A safe default for a new strategy
+            "LABEL_LONG_QUANTILE": 0.75, # Conservative starting quantiles
+            "LABEL_SHORT_QUANTILE": 0.25
+        }
+        
+        logger.info(f"AI has invented a new strategy named '{new_strategy_name}' and provided a starting configuration.")
+        return ai_response
 
     def propose_playbook_amendment(self, quarantined_strategy_name: str, framework_history: Dict, playbook: Dict) -> Dict:
         if not self.api_key_valid: return {}
@@ -1307,6 +1474,7 @@ class GeminiAnalyzer:
 
         logger.info(f"-> Engaging AI to invent a new strategy to replace the failed '{failed_strategy_name}'...")
 
+        # Find a successful strategy from history to use as inspiration
         successful_strategies = [
             run for run in framework_history.get("historical_runs", [])
             if run.get("final_metrics", {}).get("mar_ratio", 0) > 0.5
@@ -1325,31 +1493,23 @@ class GeminiAnalyzer:
             positive_example_prompt = "There are no highly successful strategies in recent history. You must be creative and propose a robust, simple strategy from scratch."
 
         prompt = (
-            "You are a Senior Quantitative Strategist tasked with inventing a cutting-edge trading strategy for our playbook. The existing strategy has been quarantined due to repeated failures.\n\n"
+            "You are a Senior Quantitative Strategist inventing a new trading strategy for our playbook. The existing strategy has been quarantined due to repeated failures.\n\n"
             f"**FAILED STRATEGY:** `{failed_strategy_name}`\n"
             f"**FAILED STRATEGY DETAILS:** {json.dumps(playbook.get(failed_strategy_name, {}), indent=2)}\n\n"
             f"{positive_example_prompt}\n\n"
             "**YOUR TASK:**\n"
-            "1. **Perform Grounded Research:** Before inventing a strategy, use your web search tool to find novel ideas relevant to the current market. Look for:\n"
-            "    - Recently published (last 1-2 years) academic papers on quantitative finance or signal processing.\n"
-            "    - Unconventional combinations of technical indicators discussed on reputable trading forums or blogs.\n"
-            "    - Concepts from other fields (e.g., machine learning, physics) that have been applied to financial markets.\n"
-            "    - *Example Search Query: 'novel alpha signals from order book imbalance' or 'combining Hilbert-Huang transform with RSI for trading'.*\n\n"
-            "2. **Synthesize and Invent:** Combine the most promising insights from your external research with the internal context (what worked and what failed historically). Create a new, hybrid strategy. Give it a creative, descriptive name (e.g., 'WaveletMomentumFilter', 'HawkesProcessBreakout').\n\n"
-            "3. **Write a Clear Description:** Explain the logic of your new strategy. What is its core concept? What market regime is it designed for?\n\n"
-            "4. **Define Key Parameters:** Set `complexity`, `ideal_regime`, `dd_range`, and `lookahead_range`. The new strategy definition MUST NOT contain a `selected_features` key. Default features should be implied by the description if necessary for future AI use.\n\n"
+            "1. **Synthesize and Invent:** Combine insights from the successful and failed strategies. Create a new, hybrid strategy. Give it a creative, descriptive name (e.g., 'WaveletMomentumFilter', 'HawkesProcessBreakout').\n\n"
+            "2. **Write a Clear Description:** Explain the logic of your new strategy. What is its core concept? What market regime is it designed for?\n\n"
+            "3. **Define Key Parameters & Features:** Set `complexity`, `ideal_regime`, etc. **Crucially, you MUST also provide a `selected_features` list** containing 4-6 of the most relevant features for your new strategy's logic.\n\n"
             "**OUTPUT FORMAT:** Respond ONLY with a single JSON object for the new strategy entry. The key for the object should be its new name.\n"
             "**EXAMPLE STRUCTURE:**\n"
             "```json\n"
             "{\n"
             '  "NewStrategyName": {\n'
-            '    "description": "A clear, concise description of the new strategy logic. Example features: `ATR`, `ADX`.",\n'
+            '    "description": "A clear, concise description of the new strategy logic.",\n'
             '    "complexity": "medium",\n'
-            '    "ideal_regime": ["Some Regime"],\n'
-            '    "asset_class_suitability": ["Any"],\n'
-            '    "ideal_macro_env": ["Neutral"],\n'
-            '    "lookahead_range": [50, 100],\n'
-            '    "dd_range": [0.15, 0.30]\n'
+            '    "ideal_regime": ["Trending"],\n'
+            '    "selected_features": ["EMA_50", "RSI", "ATR", "ADX", "DAILY_ctx_Trend"]\n'
             '  }\n'
             "}\n"
             "```"
@@ -1358,14 +1518,15 @@ class GeminiAnalyzer:
         response_text = self._call_gemini(prompt)
         new_strategy_definition = self._extract_json_from_response(response_text)
 
+        # Validate the response structure
         if new_strategy_definition and isinstance(new_strategy_definition, dict) and len(new_strategy_definition) == 1:
             strategy_name = next(iter(new_strategy_definition))
             strategy_body = new_strategy_definition[strategy_name]
-            if isinstance(strategy_body, dict) and 'description' in strategy_body and 'complexity' in strategy_body:
+            if isinstance(strategy_body, dict) and 'description' in strategy_body and 'selected_features' in strategy_body:
                 logger.info(f"  - AI has successfully proposed a new strategy named '{strategy_name}'.")
                 return new_strategy_definition
 
-        logger.error("  - AI failed to generate a valid new strategy definition.")
+        logger.error("  - AI failed to generate a valid new strategy definition with all required keys.")
         return {}
 
     def define_gene_pool(self, strategy_goal: str, available_features: List[str]) -> Dict:
@@ -1718,12 +1879,6 @@ class FeatureEngineer:
         self.hurst_warning_symbols = set()
 
     def _calculate_signal_pressure_series(self, df: pd.DataFrame, lookahead: int) -> pd.Series:
-        """
-        Calculates and returns only the raw signal_pressure series for analysis.
-        Includes a fix to handle potential duplicate timestamps and NaT values in the source data.
-        """
-        # [FIX] Corrected attribute from 'has_nans' to 'hasnans'
-        # This removes duplicate index entries to prevent reindexing errors.
         if df.index.hasnans or df.index.duplicated().any():
             df = df[~df.index.duplicated(keep='first')]
 
@@ -1731,11 +1886,9 @@ class FeatureEngineer:
         for symbol, group in df.groupby('Symbol'):
             group_copy = group.copy()
             if len(group_copy) < lookahead + 5:
-                # Append a series of zeros with the correct index
                 all_pressure_series.append(pd.Series(0.0, index=group_copy.index))
                 continue
 
-            # Helper function to calculate forward Sharpe ratio
             def _calculate_forward_sharpe(series):
                 future_returns = np.log(series.shift(-lookahead) / series.shift(-1))
                 rolling_std = future_returns.rolling(window=lookahead, min_periods=max(2, lookahead // 4)).std()
@@ -1744,16 +1897,12 @@ class FeatureEngineer:
             pressure_series = _calculate_forward_sharpe(group_copy['Close'])
             all_pressure_series.append(pressure_series)
         
-        # In case all_pressure_series is empty, return an empty series with the correct index
         if not all_pressure_series:
             return pd.Series(dtype=float, index=df.index).fillna(0.0)
             
         return pd.concat(all_pressure_series).reindex(df.index).fillna(0.0)
 
     def label_signal_pressure(self, df: pd.DataFrame, pressure_series: pd.Series, long_quantile: float, short_quantile: float) -> pd.DataFrame:
-        """
-        [REFACTORED] Applies labels to a DataFrame based on a pre-calculated pressure series and quantiles.
-        """
         logger.info(f"-> Applying labels to data based on Signal Pressure (Quantiles: {long_quantile:.2f}/{short_quantile:.2f})...")
         df_labeled = df.copy()
         df_labeled['signal_pressure'] = pressure_series
@@ -1773,9 +1922,9 @@ class FeatureEngineer:
             long_threshold = pressure_values.quantile(long_quantile)
             short_threshold = pressure_values.quantile(short_quantile)
 
-            group_copy['target'] = 1 # Default to Hold
-            group_copy.loc[group_copy['signal_pressure'] >= long_threshold, 'target'] = 2 # Long
-            group_copy.loc[group_copy['signal_pressure'] <= short_threshold, 'target'] = 0 # Short
+            group_copy['target'] = 1
+            group_copy.loc[group_copy['signal_pressure'] >= long_threshold, 'target'] = 2
+            group_copy.loc[group_copy['signal_pressure'] <= short_threshold, 'target'] = 0
             
             dist = group_copy['target'].value_counts(normalize=True) * 100
             logger.info(f"    - Label distribution for '{symbol}': Hold={dist.get(1, 0):.2f}%, Long={dist.get(2, 0):.2f}%, Short={dist.get(0, 0):.2f}%")
@@ -1860,41 +2009,82 @@ class FeatureEngineer:
 
     def engineer_daily_benchmark_features(self, daily_df: pd.DataFrame, spy_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Takes the combined daily asset data and SPY data, and engineers
-        a clean set of daily benchmark-relative features.
+        Engineers a set of daily benchmark-relative features, including a 200-period
+        EMA trend filter for the SPY benchmark.
+        This version is corrected to NOT remove duplicate index entries, which was causing data loss.
         """
-        if spy_df.empty:
-            logger.warning("SPY data is empty, cannot engineer daily benchmark features.")
+        if spy_df.empty or daily_df.empty:
+            logger.warning("SPY or daily asset data is empty; cannot engineer daily benchmark features.")
             return daily_df
 
-        logger.info("-> Engineering strategic D1-to-D1 benchmark features...")
+        logger.info("-> Engineering strategic D1-to-D1 benchmark features with 200 EMA filter...")
 
-        # Rename SPY close for merging
-        spy_daily_close = spy_df[['close']].rename(columns={'close': 'SPY_Close'})
+        try:
+            # Standardize and prepare the asset DataFrame
+            df_asset = daily_df.copy()
+            if isinstance(df_asset.index, pd.MultiIndex):
+                df_asset.reset_index(inplace=True)
+            if 'Timestamp' in df_asset.columns:
+                df_asset = df_asset.set_index('Timestamp')
+            if not isinstance(df_asset.index, pd.DatetimeIndex):
+                df_asset.index = pd.to_datetime(df_asset.index)
+            
+            # --- FIX: The problematic line that removed data has been deleted from here. ---
+            # REMOVED: df_asset = df_asset[~df_asset.index.duplicated(keep='first')]
 
-        # Merge SPY data into the daily asset data
-        df_merged = pd.merge(daily_df, spy_daily_close, left_index=True, right_index=True, how='left')
-        df_merged['SPY_Close'].ffill(inplace=True)
+            # Standardize the SPY DataFrame index and columns
+            df_spy = spy_df.copy()
+            if isinstance(df_spy.index, pd.MultiIndex):
+                df_spy.reset_index(inplace=True)
+            if 'Date' in df_spy.columns:
+                df_spy = df_spy.set_index('Date')
+            if not isinstance(df_spy.index, pd.DatetimeIndex):
+                df_spy.index = pd.to_datetime(df_spy.index)
+            if isinstance(df_spy.columns, pd.MultiIndex):
+                df_spy.columns = df_spy.columns.get_level_values(0)
 
-        # Calculate the benchmark features
-        df_merged = self._calculate_relative_strength(df_merged)
-        df_merged = self._calculate_benchmark_correlation(df_merged)
-        df_merged = self._calculate_benchmark_trend_filter(df_merged)
+            # Calculate SPY trend features
+            df_spy['spy_sma_200'] = df_spy['close'].rolling(window=200, min_periods=100).mean()
+            df_spy['is_spy_bullish'] = (df_spy['close'] > df_spy['spy_sma_200']).fillna(False).astype(int)
+            df_spy['spy_returns'] = df_spy['close'].pct_change()
 
-        # Return only the original columns plus the new benchmark features
-        new_feature_cols = ['relative_strength_vs_spy', 'correlation_with_spy', 'is_spy_bullish']
-        cols_to_return = daily_df.columns.tolist() + [col for col in new_feature_cols if col in df_merged.columns]
+            # Merge and Calculate Final Features
+            benchmark_features_to_add = df_spy[['is_spy_bullish', 'spy_returns']]
+            df_merged = pd.merge(df_asset, benchmark_features_to_add, left_index=True, right_index=True, how='left')
+            df_merged[['is_spy_bullish', 'spy_returns']] = df_merged[['is_spy_bullish', 'spy_returns']].ffill()
 
-        return df_merged[cols_to_return]
+            all_enriched_groups = []
+            if 'Symbol' in df_merged.columns:
+                for symbol, group_df in df_merged.groupby('Symbol'):
+                    group_copy = group_df.copy()
+                    group_copy['asset_returns'] = group_copy['Close'].pct_change()
+                    group_copy['relative_strength_vs_spy'] = (group_copy['asset_returns'] - group_copy['spy_returns'])
+                    group_copy['correlation_with_spy'] = group_copy['asset_returns'].rolling(window=60, min_periods=30).corr(group_copy['spy_returns'])
+                    all_enriched_groups.append(group_copy)
 
-    def _detect_anomalies(self, df: pd.DataFrame) -> pd.DataFrame: # From V211
-        anomaly_features_present = [f for f in self.ANOMALY_FEATURES if f in df.columns and df[f].isnull().sum() < len(df) and df[f].nunique(dropna=False) > 1] # Check nunique > 1
+                if not all_enriched_groups:
+                    logger.warning("No symbol groups were processed for benchmark features.")
+                    return daily_df
+
+                final_df = pd.concat(all_enriched_groups).sort_index()
+                final_df.drop(columns=['spy_returns', 'asset_returns'], inplace=True, errors='ignore')
+                return final_df
+            else:
+                logger.warning("No 'Symbol' column found in daily data to group by. Returning partially processed data.")
+                return df_merged
+
+        except Exception as e:
+            logger.error("An unexpected error occurred during benchmark feature engineering.", exc_info=True)
+            raise e
+
+    def _detect_anomalies(self, df: pd.DataFrame) -> pd.DataFrame:
+        anomaly_features_present = [f for f in self.ANOMALY_FEATURES if f in df.columns and df[f].isnull().sum() < len(df) and df[f].nunique(dropna=False) > 1]
         if not anomaly_features_present:
-            df['anomaly_score'] = 1 # Normal (no anomaly)
+            df['anomaly_score'] = 1
             return df
 
         df_anomaly_subset = df[anomaly_features_present].copy()
-        for col in df_anomaly_subset.columns: # Impute medians for IF
+        for col in df_anomaly_subset.columns:
             if df_anomaly_subset[col].isnull().any():
                 df_anomaly_subset[col].fillna(df_anomaly_subset[col].median(), inplace=True)
 
@@ -1904,13 +2094,12 @@ class FeatureEngineer:
 
         model = IsolationForest(contamination=self.config.anomaly_contamination_factor, random_state=42)
         try:
-            # Ensure all data is numeric for IsolationForest
             if not all(np.issubdtype(dtype, np.number) for dtype in df_anomaly_subset.dtypes):
                 logger.warning(f"Non-numeric data found in anomaly features for symbol {df['Symbol'].iloc[0] if not df.empty else 'Unknown'}. Skipping anomaly detection.")
                 df['anomaly_score'] = 1
                 return df
 
-            predictions = model.fit_predict(df_anomaly_subset) # -1 for anomalies, 1 for inliers
+            predictions = model.fit_predict(df_anomaly_subset)
             df['anomaly_score'] = pd.Series(predictions, index=df_anomaly_subset.index).reindex(df.index)
         except ValueError as e:
             symbol_for_log = df['Symbol'].iloc[0] if 'Symbol' in df.columns and not df.empty else "UnknownSymbol"
@@ -1919,12 +2108,11 @@ class FeatureEngineer:
         df['anomaly_score'].ffill(inplace=True); df['anomaly_score'].bfill(inplace=True); df['anomaly_score'].fillna(1, inplace=True)
         return df
 
-    def _calculate_relative_performance(self, df: pd.DataFrame) -> pd.DataFrame: # From V211
+    def _calculate_relative_performance(self, df: pd.DataFrame) -> pd.DataFrame:
         if 'pct_change' not in df.columns and 'Close' in df.columns and 'Symbol' in df.columns:
              df['pct_change'] = df.groupby('Symbol')['Close'].pct_change()
-        elif 'pct_change' not in df.columns: # Single symbol or pct_change pre-calculated
+        elif 'pct_change' not in df.columns:
             df['pct_change'] = df['Close'].pct_change()
-
 
         df_for_market_ret = df.copy()
         if not isinstance(df_for_market_ret.index, pd.DatetimeIndex):
@@ -1939,15 +2127,37 @@ class FeatureEngineer:
             df['relative_performance'] = 0.0
             return df
 
-        # Calculate mean returns across symbols for each timestamp
         mean_market_returns = df_for_market_ret.groupby(df_for_market_ret.index)['pct_change'].mean()
         df['market_return_temp'] = df.index.map(mean_market_returns)
         df['relative_performance'] = df['pct_change'] - df['market_return_temp']
         df.drop(columns=['market_return_temp'], inplace=True, errors='ignore')
-        df['relative_performance'].fillna(0.0, inplace=True) # Fill NaNs in final result
+        df['relative_performance'].fillna(0.0, inplace=True)
         return df
 
-    # --- Individual Feature Calculation Methods ---
+    def _calculate_relative_strength(self, df: pd.DataFrame) -> pd.DataFrame:
+        if 'Close' in df.columns and 'SPY_Close' in df.columns:
+            df['relative_strength_vs_spy'] = (df['Close'] / df['SPY_Close'])
+        else:
+            df['relative_strength_vs_spy'] = np.nan
+        return df
+
+    def _calculate_benchmark_correlation(self, df: pd.DataFrame, window: int = 50) -> pd.DataFrame:
+        if 'Close' in df.columns and 'SPY_Close' in df.columns:
+            asset_returns = df['Close'].pct_change()
+            spy_returns = df['SPY_Close'].pct_change()
+            df['correlation_with_spy'] = asset_returns.rolling(window=window, min_periods=window//2).corr(spy_returns)
+        else:
+            df['correlation_with_spy'] = np.nan
+        return df
+
+    def _calculate_benchmark_trend_filter(self, df: pd.DataFrame, window: int = 200) -> pd.DataFrame:
+        if 'SPY_Close' in df.columns:
+            spy_sma = df['SPY_Close'].rolling(window=window, min_periods=window//2).mean()
+            df['is_spy_bullish'] = (df['SPY_Close'] > spy_sma).astype(int)
+        else:
+            df['is_spy_bullish'] = 0
+        return df
+
     def _calculate_atr(self, df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
         if not all(col in df.columns for col in ['High', 'Low', 'Close']):
             df['ATR'] = np.nan
@@ -1957,9 +2167,7 @@ class FeatureEngineer:
         high_low = df['High'] - df['Low']
         high_close = np.abs(df['High'] - df['Close'].shift())
         low_close = np.abs(df['Low'] - df['Close'].shift())
-
         tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1, skipna=False)
-        # Use Exponential Moving Average for ATR
         df['ATR'] = tr.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
         return df
 
@@ -2533,17 +2741,21 @@ class FeatureEngineer:
         df_pca_subset = df[pca_features].copy().astype(np.float32)
         df_pca_subset.fillna(df_pca_subset.median(), inplace=True)
         df_pca_subset = df_pca_subset.loc[:, df_pca_subset.var(ddof=0) > 1e-6]
-        if df_pca_subset.shape[1] < self.config.PCA_N_COMPONENTS or df_pca_subset.shape[0] < self.config.PCA_N_COMPONENTS:
-            logger.warning(f"Not enough features/samples for standard PCA. Skipping.")
+
+        n_components = min(self.config.PCA_N_COMPONENTS, df_pca_subset.shape[1])
+
+        if df_pca_subset.shape[1] < 2 or df_pca_subset.shape[0] < n_components:
+            logger.warning(f"Not enough features/samples for standard PCA ({df_pca_subset.shape[1]} features available). Skipping.")
             for i in range(self.config.PCA_N_COMPONENTS): df[f'RSI_PCA_{i+1}'] = np.nan
             return df
-        pipeline = Pipeline([('scaler', StandardScaler()), ('pca', PCA(n_components=self.config.PCA_N_COMPONENTS, random_state=42))])
+
+        pipeline = Pipeline([('scaler', StandardScaler()), ('pca', PCA(n_components=n_components, random_state=42))])
         try:
             principal_components = pipeline.fit_transform(df_pca_subset)
-            pca_cols = [f'RSI_PCA_{i+1}' for i in range(self.config.PCA_N_COMPONENTS)]
+            pca_cols = [f'RSI_PCA_{i+1}' for i in range(n_components)]
             pca_df = pd.DataFrame(principal_components, columns=pca_cols, index=df_pca_subset.index)
             df_out = df.join(pca_df, how='left')
-            logger.info(f"Standard PCA complete. Explained variance: {pipeline.named_steps['pca'].explained_variance_ratio_.sum():.2%}")
+            logger.info(f"Standard PCA complete. Explained variance for {n_components} components: {pipeline.named_steps['pca'].explained_variance_ratio_.sum():.2%}")
             return df_out
         except Exception as e:
             logger.error(f"Standard PCA failed: {e}. Skipping.", exc_info=True)
@@ -2560,13 +2772,15 @@ class FeatureEngineer:
         df_pca_subset.fillna(df_pca_subset.median(), inplace=True)
         df_pca_subset = df_pca_subset.loc[:, df_pca_subset.var(ddof=0) > 1e-6]
 
-        if df_pca_subset.shape[1] < self.config.PCA_N_COMPONENTS or df_pca_subset.shape[0] < self.config.PCA_N_COMPONENTS:
-            logger.warning(f"Not enough features/samples for Incremental PCA. Skipping.")
+        n_components = min(self.config.PCA_N_COMPONENTS, df_pca_subset.shape[1])
+
+        if df_pca_subset.shape[1] < 2 or df_pca_subset.shape[0] < n_components:
+            logger.warning(f"Not enough features/samples for Incremental PCA ({df_pca_subset.shape[1]} features available). Skipping.")
             for i in range(self.config.PCA_N_COMPONENTS): df[f'RSI_PCA_{i+1}'] = np.nan
             return df
 
         scaler = StandardScaler()
-        ipca = IncrementalPCA(n_components=self.config.PCA_N_COMPONENTS)
+        ipca = IncrementalPCA(n_components=n_components)
         batch_size = min(max(1000, df_pca_subset.shape[0] // 100), len(df_pca_subset))
 
         if batch_size == 0 and len(df_pca_subset) > 0: batch_size = len(df_pca_subset)
@@ -2581,7 +2795,7 @@ class FeatureEngineer:
                 logger.warning("Scaler is being fitted on a very small or empty DataFrame.")
                 scaler.fit(df_pca_subset)
 
-            total_batches = (df_pca_subset.shape[0] + batch_size - 1) // batch_size
+            total_batches = (df_pca_subset.shape[0] + batch_size - 1) // batch_size if batch_size > 0 else 0
             for i in range(0, df_pca_subset.shape[0], batch_size):
                 batch = df_pca_subset.iloc[i:i + batch_size]
                 if batch.empty: continue
@@ -2607,13 +2821,19 @@ class FeatureEngineer:
                  return df
 
             principal_components = np.vstack(transformed_batches)
-            pca_cols = [f'RSI_PCA_{i+1}' for i in range(self.config.PCA_N_COMPONENTS)]
+            pca_cols = [f'RSI_PCA_{i+1}' for i in range(n_components)]
 
             logger.info("Assigning new PCA features directly to the DataFrame...")
-            for i, col_name in enumerate(pca_cols):
-                df[col_name] = principal_components[:, i]
+            
+            # Initialize all potential PCA columns to NaN first to avoid partial assignment issues
+            for i in range(self.config.PCA_N_COMPONENTS):
+                df[f'RSI_PCA_{i+1}'] = np.nan
 
-            logger.info(f"IncrementalPCA reduction complete. Explained variance: {ipca.explained_variance_ratio_.sum():.2%}")
+            # Now, assign the calculated components
+            pca_df = pd.DataFrame(principal_components, columns=pca_cols, index=df_pca_subset.index)
+            df.update(pca_df) # Use update for safer assignment on shared index
+
+            logger.info(f"IncrementalPCA reduction complete. Explained variance for {n_components} components: {ipca.explained_variance_ratio_.sum():.2%}")
             return df
         except Exception as e:
             sys.stdout.write('\n')
@@ -2629,6 +2849,27 @@ class FeatureEngineer:
         rsi = 100 - (100 / (1 + rs.fillna(np.inf)))
         return rsi.replace([np.inf, -np.inf], 50).fillna(50)
 
+    def _calculate_rsi_mse(self, df: pd.DataFrame) -> pd.DataFrame:
+            """
+            Calculates the Mean Squared Error of RSI against its moving average
+            to quantify the stability of momentum, adding it as 'rsi_mse'.
+            """
+            # Get parameters from the configuration
+            period = self.config.RSI_MSE_PERIOD
+            sma_period = self.config.RSI_MSE_SMA_PERIOD
+            mse_window = self.config.RSI_MSE_WINDOW
+
+            # Use the existing robust internal RSI calculation
+            rsi = self._calculate_rsi_series(df['Close'], period=period)
+            
+            # Calculate the moving average of the RSI
+            rsi_ma = rsi.rolling(window=sma_period, min_periods=max(1, sma_period // 2)).mean()
+            
+            # Calculate the squared error and then the rolling mean (MSE)
+            squared_error = (rsi - rsi_ma) ** 2
+            df['rsi_mse'] = squared_error.rolling(window=mse_window, min_periods=max(1, mse_window // 2)).mean()
+            
+            return df
 
     def _apply_pca_reduction(self, df: pd.DataFrame) -> pd.DataFrame:
         if not self.config.USE_PCA_REDUCTION: return df
@@ -2794,6 +3035,7 @@ class FeatureEngineer:
         df = self._calculate_order_flow_features(df)
         df = self._calculate_depth_features(df)
         df = self._calculate_structural_breaks(df)
+        df = self._calculate_rsi_mse(df)
 
         # 8. Meta Features (interactions between other features)
         df = self._calculate_meta_features(df)
@@ -2806,24 +3048,18 @@ class FeatureEngineer:
 
         return df
 
-    def engineer_features(self, base_df: pd.DataFrame, data_by_tf: Dict[str, pd.DataFrame]) -> pd.DataFrame:
-        """
-        Orchestrates the creation of a full feature stack for all symbols.
-        This is the main entry point for feature engineering.
-        """
-        # The base_df argument is unused as the method correctly sources the base data
-        # from the data_by_tf dictionary. We keep it for compatibility with the caller.
+    def engineer_features(self, base_df: pd.DataFrame, data_by_tf: Dict[str, pd.DataFrame], gemini_analyzer: Optional['GeminiAnalyzer'] = None, api_timer: Optional['APITimer'] = None) -> pd.DataFrame:
         logger.info("-> Stage 2: Engineering Full Feature Stack...")
         base_tf_name = self.roles.get('base')
         if base_tf_name not in data_by_tf or data_by_tf[base_tf_name].empty:
-            logger.critical(f"Base timeframe '{base_tf_name}' data is missing or empty. Cannot proceed with feature engineering.")
+            logger.critical(f"Base timeframe '{base_tf_name}' data is missing or empty. Cannot proceed.")
             return pd.DataFrame()
 
         all_symbols_processed_dfs = []
-        base_df_global = data_by_tf[base_tf_name] # This contains all symbols for the base TF
+        base_df_global = data_by_tf[base_tf_name]
 
         if 'Symbol' not in base_df_global.columns:
-             logger.critical(f"Base timeframe '{base_tf_name}' data is missing 'Symbol' column. Cannot group by symbol.")
+             logger.critical(f"Base timeframe '{base_tf_name}' data is missing 'Symbol' column.")
              return pd.DataFrame()
 
         if not isinstance(base_df_global.index, pd.DatetimeIndex) and 'Timestamp' in base_df_global.columns:
@@ -2845,12 +3081,12 @@ class FeatureEngineer:
                         if 'Timestamp' in symbol_df_for_tf_current.columns:
                             symbol_df_for_tf_current = symbol_df_for_tf_current.set_index('Timestamp')
                         else:
-                            logger.warning(f"Timestamp missing for {symbol} on {tf_loop_name}. Skipping this TF context for this symbol.")
+                            logger.warning(f"Timestamp missing for {symbol} on {tf_loop_name}. Skipping this TF context.")
                             continue
-                    symbol_specific_data_all_tfs[tf_loop_name] = symbol_df_for_tf_current.sort_index() # Ensure sorted
+                    symbol_specific_data_all_tfs[tf_loop_name] = symbol_df_for_tf_current.sort_index()
             
             if symbol_specific_data_all_tfs.get(base_tf_name, pd.DataFrame()).empty:
-                logger.warning(f"    - No base timeframe data found for symbol {symbol} after filtering. Skipping this symbol.")
+                logger.warning(f"    - No base timeframe data found for symbol {symbol}. Skipping.")
                 continue
 
             processed_symbol_df = self._process_single_symbol_stack(symbol_specific_data_all_tfs)
@@ -2864,15 +3100,38 @@ class FeatureEngineer:
             return pd.DataFrame()
 
         logger.info("  - Concatenating feature data for all symbols...")
-        final_df = pd.concat(all_symbols_processed_dfs, sort=False) # Sort=False is fine, will sort by index later
+        final_df = pd.concat(all_symbols_processed_dfs, sort=False)
         
-        # Ensure Timestamp index for final_df and sort
         if not isinstance(final_df.index, pd.DatetimeIndex) and 'Timestamp' in final_df.columns:
              final_df = final_df.set_index('Timestamp')
         elif not isinstance(final_df.index, pd.DatetimeIndex):
-            logger.error("Final concatenated DataFrame has no DatetimeIndex or 'Timestamp' column after symbol processing.")
+            logger.error("Final concatenated DataFrame has no DatetimeIndex or 'Timestamp' column.")
             return pd.DataFrame()
-        final_df = final_df.sort_index() # CRITICAL: Sort by time after concatenation
+        final_df = final_df.sort_index()
+
+        # --- AI-Driven Feature Discovery ---
+        if gemini_analyzer and api_timer:
+            base_feature_list = [col for col in final_df.columns if col not in ['Open','High','Low','Close','RealVolume','Symbol','Timestamp']]
+            # Diagnose regime once on the whole training data to inform the AI
+            regime_summary = train_and_diagnose_regime(final_df, os.path.join(self.config.BASE_PATH, "Results"))
+            
+            ai_features_to_create = api_timer.call(
+                gemini_analyzer.propose_alpha_features,
+                base_features=base_feature_list,
+                strategy_name=self.config.strategy_name,
+                diagnosed_regime=regime_summary.get("current_diagnosed_regime", "Unknown")
+            )
+            # Unpack the new, richer dictionary from the AI before applying the features.
+            if ai_features_to_create:
+                patterns_to_apply = [
+                    {
+                        "pattern_name": name,
+                        "lambda_function_str": details.get("lambda"),
+                        "pattern_description": details.get("description")
+                    } 
+                    for name, details in ai_features_to_create.items()
+                ]
+                final_df = self.apply_discovered_features(final_df, patterns_to_apply)
 
         logger.info("  - Calculating cross-symbol features (e.g., relative performance)...")
         final_df = self._calculate_relative_performance(final_df)
@@ -2886,42 +3145,26 @@ class FeatureEngineer:
         final_df['noise_2'] = np.random.uniform(-1, 1, len(final_df))
 
         logger.info("  - Applying final data shift (features for t-1 predict t) and cleaning...")
-        # Define identity columns that should NOT be shifted (prices, volume, symbol, timestamp)
-        # Also, 'target_*' columns created by labeling should NOT be shifted here.
-        # This shift is for features used as input to the model.
-        identity_cols = ['Open','High','Low','Close','RealVolume','Symbol','Timestamp'] # Timestamp is index
-        
-        # Features to shift are all columns EXCEPT identity and target columns
+        identity_cols = ['Open','High','Low','Close','RealVolume','Symbol','Timestamp']
         feature_cols_to_shift = [c for c in final_df.columns if c not in identity_cols and not c.startswith('target')]
         
-        if 'Symbol' in final_df.columns: # Group by symbol before shifting
+        if 'Symbol' in final_df.columns:
             final_df[feature_cols_to_shift] = final_df.groupby('Symbol', group_keys=False)[feature_cols_to_shift].shift(1)
-        else: # If somehow it's a single symbol df (should not happen if called with multi-symbol data)
+        else:
             final_df[feature_cols_to_shift] = final_df[feature_cols_to_shift].shift(1)
 
         final_df.replace([np.inf,-np.inf],np.nan,inplace=True)
 
-        # Drop rows where critical features are NaN AFTER the shift.
-        # These features are essential for basic model operation or further calculations.
-        critical_features_for_dropna = ['ATR', 'RSI', 'ADX', 'bollinger_bandwidth'] # Example critical features
+        critical_features_for_dropna = ['ATR', 'RSI', 'ADX', 'bollinger_bandwidth']
         subset_for_dropna_check = [f for f in critical_features_for_dropna if f in final_df.columns]
 
         if subset_for_dropna_check:
-            # This dropna is after the shift, so it removes rows where lagged critical features are NaN.
             final_df.dropna(subset=subset_for_dropna_check, how='any', inplace=True)
         else:
-            # Fallback: if no critical features defined or present, drop rows where ALL shifted features are NaN
             final_df.dropna(how='all', subset=feature_cols_to_shift, inplace=True)
 
         logger.info(f"[SUCCESS] Feature engineering (Stage 2) complete. Final dataset shape before labeling: {final_df.shape}")
         return final_df
-
-def _get_available_features_from_df(df: pd.DataFrame) -> List[str]: # Helper
-    """Gets all column names that are not OHLC, Symbol, Timestamp, or target."""
-    if df.empty: return []
-    excluded_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'Tickvol', 'RealVolume', 'Symbol', 'Timestamp']
-    features = [col for col in df.columns if col not in excluded_cols and not col.startswith('target')]
-    return features
 
 # =============================================================================
 # 6. MODELS & TRAINER
@@ -3006,13 +3249,49 @@ class ModelTrainer:
         self.eval_metric = 'mlogloss'
 
     def train(self, df_train_labeled: pd.DataFrame, feature_list: List[str]) -> Optional[Tuple[Pipeline, float, List[str]]]:
-        """
-        Main method for training the model. Ensures all variables for feature
-        selection are correctly defined on all code paths.
-        """
         logger.info("-> Starting model training orchestration...")
 
-        sample_size = min(len(df_train_labeled), 75000)
+        # --- Check for Genetic Programming Strategy ---
+        if self.config.strategy_name == "EvolvedRuleStrategy":
+            logger.info("  - Evolved Rule Strategy detected. Engaging Genetic Programmer...")
+            
+            # 1. AI defines the building blocks for the evolution
+            gene_pool = self.gemini_analyzer.define_gene_pool("a profitable trading rule", feature_list)
+            if not gene_pool or not gene_pool.get('indicators'):
+                logger.error("AI failed to define a valid gene pool. Cannot run Genetic Programmer.")
+                return None
+            
+            # 2. Run the genetic evolution
+            gp = GeneticProgrammer(gene_pool, self.config)
+            best_rules, best_fitness = gp.run_evolution(df_train_labeled)
+            
+            # 3. Apply the best-evolved rules as new features to the dataframe
+            logger.info("  - Applying evolved rules as new features for the XGBoost model...")
+            df_train_labeled['evolved_long_signal'] = gp._parse_and_eval_rule(best_rules[0], df_train_labeled).astype(int)
+            df_train_labeled['evolved_short_signal'] = gp._parse_and_eval_rule(best_rules[1], df_train_labeled).astype(int)
+            
+            # 4. Add the new features to the list for the trainer to use
+            feature_list.extend(['evolved_long_signal', 'evolved_short_signal'])
+            logger.info("  - Evolved features created. Proceeding to standard model training.")
+        # --- END OF GP LOGIC ---
+        if self.is_minirocket_model:
+            if not MINIROCKET_AVAILABLE:
+                logger.error("MiniRocket strategy was selected, but the 'sktime' library is not installed. Aborting training.")
+                logger.error("Please install it with: pip install sktime")
+                return None
+            
+            logger.info("  - MiniRocket strategy detected. Dispatching to specialized pipeline.")
+            # MiniRocket has its own data preparation and doesn't use the standard feature list.
+            pipeline, threshold = self._train_minirocket_pipeline(df_train_labeled)
+            if pipeline:
+                # For MiniRocket, the "features" are the raw series it needs for the transform.
+                minirocket_features = ['Close', 'RealVolume', 'ATR']
+                return pipeline, threshold, minirocket_features
+            else:
+                return None # MiniRocket training failed
+
+        # If not a MiniRocket model, proceed with the standard training process.
+        sample_size = min(len(df_train_labeled), 30000)
         logger.info(f"  - Using a random sample of {sample_size} rows for the entire training process.")
         df_sample = df_train_labeled.sample(n=sample_size, random_state=42)
         df_sample = df_sample.dropna(subset=['target'])
@@ -3058,12 +3337,9 @@ class ModelTrainer:
         num_classes = y_sample.nunique()
         self.class_weights = dict(zip(np.unique(y_sample), compute_class_weight('balanced', classes=np.unique(y_sample), y=y_sample)))
         
-        study = self._optimize_hyperparameters(X_for_tuning, y_sample, num_classes)
+        study = self._optimize_hyperparameters(X_for_tuning, y_sample, df_sample, num_classes)
         if not study or not study.best_trials: return None
         
-        # NOTE: The logic for the dynamic F1 gate would be implemented here, as discussed.
-        # For now, we proceed with the hardcoded gate.
-
         logger.info(f"  - Stage 3: Selecting best model and training...")
         best_trial = self._select_best_trial_from_study(study, "primary_model") 
         best_threshold, f1_val = self._find_best_threshold(best_trial.params, X_for_tuning, y_sample, num_classes)
@@ -3187,61 +3463,109 @@ class ModelTrainer:
         mi_series = pd.Series(mi_scores, index=X_final_numeric.columns).sort_values(ascending=False)
         return mi_series.head(top_n).index.tolist()
 
-    def _optimize_hyperparameters(self, X: pd.DataFrame, y: pd.Series, num_classes: int) -> Optional[optuna.study.Study]:
+    def _optimize_hyperparameters(self, X: pd.DataFrame, y: pd.Series, df_full_sample: pd.DataFrame, num_classes: int) -> Optional[optuna.study.Study]:
         state_rules = self.config.STATE_BASED_CONFIG[self.config.operating_state]
-        optimization_objective_names = state_rules.get("optimization_objective", ["maximize_f1", "maximize_log_trades"])
+        # --- FIX 1 START: The optimization objective is changed to use Sharpe Ratio for a more stable metric ---
+        # We rename the objective to reflect the change from 'calmar' to 'sharpe'
+        optimization_objective_names = ["maximize_sharpe", "maximize_log_trades"]
         logger.info(f"    - Optuna Study Objectives: {optimization_objective_names}")
-        obj1_label = optimization_objective_names[0].replace('_', ' ').title()
-        obj2_label = optimization_objective_names[1].replace('_', ' ').title()
+        
+        obj_labels = [name.replace('_', ' ').title() for name in optimization_objective_names]
+        # --- FIX 1 END ---
 
         def dynamic_progress_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
             progress_str = f"> Optuna Optimization: Trial {trial.number + 1}/{self.config.OPTUNA_TRIALS}"
             if study.best_trials:
                 best_values = study.best_trials[0].values
                 if best_values and len(best_values) >= 2:
-                    progress_str += f" | Best Trial -> {obj1_label}: {best_values[0]:.4f}, {obj2_label}: {best_values[1]:.4f}"
+                    progress_str += f" | Best Trial -> {obj_labels[0]}: {best_values[0]:.4f}, {obj_labels[1]}: {best_values[1]:.4f}"
             sys.stdout.write(f"\r{progress_str}\x1b[K"); sys.stdout.flush()
-        
+
         def custom_objective(trial: optuna.Trial) -> Tuple[float, float]:
             params = {
-                'objective': self.objective, 'eval_metric': self.eval_metric, 'seed': 42,
-                'n_estimators': trial.suggest_int('n_estimators', 100, 800, step=50),
+                'n_estimators': trial.suggest_int('n_estimators', 100, 700, step=100),
                 'max_depth': trial.suggest_int('max_depth', 3, 7),
                 'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
                 'subsample': trial.suggest_float('subsample', 0.6, 1.0),
                 'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-                'gamma': trial.suggest_float('gamma', 0, 5)
             }
-            if num_classes > 2: params['num_class'] = num_classes
-            
-            model = xgb.XGBClassifier(**params)
+            tp_multiplier = trial.suggest_float('tp_multiplier', 1.0, 5.0)
+            sl_multiplier = trial.suggest_float('sl_multiplier', 0.5, 3.0)
+
+            model = xgb.XGBClassifier(**params, objective=self.objective, eval_metric=self.eval_metric, seed=42, num_class=num_classes)
             skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
             fold_scores = defaultdict(list)
-            
+
             for train_idx, val_idx in skf.split(X, y):
                 X_train, X_val, y_train, y_val = X.iloc[train_idx], X.iloc[val_idx], y.iloc[train_idx], y.iloc[val_idx]
                 
-                # Applies the calculated class weights during fitting
-                fit_params = {
-                    'sample_weight': y_train.map(self.class_weights)
-                }
+                fit_params = {'sample_weight': y_train.map(self.class_weights)}
                 model.fit(X_train, y_train, **fit_params, verbose=False)
                 
                 preds = model.predict(X_val)
-                f1 = f1_score(y_val, preds, average='weighted', labels=[l for l in [0, 2] if l in y.unique()], zero_division=0)
                 activity = np.log1p(np.sum(preds != 1))
-                fold_scores["f1"].append(f1)
+                
+                pnl = np.zeros(len(val_idx))
+                backtest_data_fold = df_full_sample.iloc[val_idx]
+                holding_period = 20
+
+                for i in range(len(backtest_data_fold) - holding_period):
+                    if preds[i] != 1:
+                        direction = 1 if preds[i] == 2 else -1
+                        entry_price = backtest_data_fold['Close'].iloc[i]
+                        atr = backtest_data_fold['ATR'].iloc[i]
+
+                        if pd.isna(atr) or atr <= 0: continue
+                        
+                        sl_dist_points = atr * sl_multiplier
+                        
+                        tp_dist_points = sl_dist_points * tp_multiplier
+                        tp_price = entry_price + (tp_dist_points * direction)
+                        sl_price = entry_price - (sl_dist_points * direction)
+                        
+                        future_prices = backtest_data_fold.iloc[i+1 : i+1+holding_period]
+                        
+                        tp_hit_mask = (future_prices['High'] >= tp_price) if direction == 1 else (future_prices['Low'] <= tp_price)
+                        sl_hit_mask = (future_prices['Low'] <= sl_price) if direction == 1 else (future_prices['High'] >= sl_price)
+
+                        tp_hit_time = tp_hit_mask.idxmax() if tp_hit_mask.any() else None
+                        sl_hit_time = sl_hit_mask.idxmax() if sl_hit_mask.any() else None
+                        
+                        if tp_hit_time and (sl_hit_time is None or tp_hit_time < sl_hit_time):
+                            pnl[i] = tp_dist_points
+                        elif sl_hit_time:
+                            pnl[i] = -sl_dist_points
+                        else:
+                            end_price = future_prices['Close'].iloc[-1]
+                            pnl[i] = (end_price - entry_price) * direction
+                
+                pnl_series = pd.Series(pnl[pnl != 0])
+                if len(pnl_series) > 2:
+                    # --- FIX 2 START: Calculate Sharpe ratio instead of Calmar ---
+                    mean_return = pnl_series.mean()
+                    std_return = pnl_series.std()
+                    sharpe_ratio = mean_return / std_return if std_return > 0 else 0.0
+                    fold_scores["sharpe"].append(sharpe_ratio)
+                    # --- FIX 2 END ---
+                else:
+                    fold_scores["sharpe"].append(0.0)
+
                 fold_scores["activity"].append(activity)
 
-            obj1, obj2 = 0.0, 0.0
-            if 'f1' in optimization_objective_names[0]:
-                obj1 = np.mean(fold_scores["f1"])
-            
-            if 'log_trades' in optimization_objective_names[1]:
-                obj2 = np.mean(fold_scores["activity"])
-                if 'minimize' in optimization_objective_names[1]:
-                    obj2 = -obj2
-            
+            def get_objective_value(name: str) -> float:
+                # --- FIX 3 START: Return the mean of the calculated Sharpe scores ---
+                if name == "maximize_sharpe":
+                    return np.mean(fold_scores["sharpe"])
+                # --- FIX 3 END ---
+                if name == "maximize_log_trades":
+                    return np.mean(fold_scores["activity"])
+                if name == "minimize_trades":
+                    return -np.mean(fold_scores["activity"])
+                logger.warning(f"Optimization objective '{name}' is not implemented. Returning 0.0.")
+                return 0.0
+
+            obj1 = get_objective_value(optimization_objective_names[0])
+            obj2 = get_objective_value(optimization_objective_names[1])
             return obj1, obj2
 
         try:
@@ -3274,7 +3598,9 @@ class ModelTrainer:
     def _find_best_threshold(self, best_params, X, y, num_classes) -> Tuple[float, float]:
         logger.info("    - Tuning classification threshold for F1 score...")
         X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.25, stratify=y if y.nunique() > 1 else None, random_state=42)
-        temp_params = {'objective': self.objective, **best_params}
+        # Separate model params from other params found by Optuna (like tp/sl multipliers)
+        model_params = {k: v for k, v in best_params.items() if k not in ['tp_multiplier', 'sl_multiplier']}
+        temp_params = {'objective': self.objective, **model_params}
         if num_classes > 2: temp_params['num_class'] = num_classes
         temp_pipeline = Pipeline([('scaler', RobustScaler()), ('model', xgb.XGBClassifier(**temp_params))])
         fit_params = {'model__sample_weight': y_train.map(self.class_weights)}
@@ -3293,7 +3619,10 @@ class ModelTrainer:
     def _train_final_model(self, best_params: Dict, X_input: pd.DataFrame, y_input: pd.Series, final_feature_names: List[str], num_classes: int, pre_fitted_transformer: Pipeline = None) -> Optional[Pipeline]:
         logger.info(f"    - Training final model on all data using {len(final_feature_names)} features/components...")
         try:
-            final_params = {'objective': self.objective, **best_params, 'random_state': 42}
+            # Separate model params from other params found by Optuna
+            model_params = {k: v for k, v in best_params.items() if k not in ['tp_multiplier', 'sl_multiplier']}
+            final_params = {'objective': self.objective, **model_params, 'random_state': 42}
+            
             if num_classes > 2: final_params['num_class'] = num_classes
             
             model = xgb.XGBClassifier(**final_params)
@@ -3328,8 +3657,12 @@ class ModelTrainer:
     def _generate_shap_summary(self, model, X_scaled, feature_names):
         logger.info("    - Generating SHAP feature importance summary...")
         try:
+            # We already use sampling, which is the most important optimization.
             X_sample = shap.utils.sample(X_scaled, 2000) if len(X_scaled) > 2000 else X_scaled
-            explainer = shap.Explainer(model, X_sample)
+            
+            # Using the specialized TreeExplainer for XGBoost is significantly faster.
+            explainer = shap.TreeExplainer(model, X_sample)
+            
             shap_values = explainer(X_sample)
             mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
             if mean_abs_shap.ndim > 1: mean_abs_shap = mean_abs_shap.mean(axis=1)
@@ -3352,8 +3685,8 @@ class Backtester:
         self.config = config
         self.use_tp_ladder = self.config.USE_TP_LADDER
         if self.use_tp_ladder:
-            if len(self.config.TP_LADDER_LEVELS_PCT) != len(self.config.TP_LADDER_RISK_MULTIPLIERS):
-                logger.error("TP Ladder config error: Lengths of PCT and Multipliers do not match. Disabling.")
+            if not self.config.TP_LADDER_LEVELS_PCT or not self.config.TP_LADDER_RISK_MULTIPLIERS or len(self.config.TP_LADDER_LEVELS_PCT) != len(self.config.TP_LADDER_RISK_MULTIPLIERS):
+                logger.error("TP Ladder config error: Lengths of PCT and Multipliers are invalid or do not match. Disabling.")
                 self.use_tp_ladder = False
             elif not np.isclose(sum(self.config.TP_LADDER_LEVELS_PCT), 1.0):
                 logger.error(f"TP Ladder config error: 'TP_LADDER_LEVELS_PCT' sum ({sum(self.config.TP_LADDER_LEVELS_PCT)}) is not 1.0. Disabling.")
@@ -3361,7 +3694,7 @@ class Backtester:
             else:
                 logger.info("Take-Profit Ladder is ENABLED.")
         else:
-            logger.info("Take-Profit Ladder is DISABLED (or was disabled due to config error).")
+            logger.info("Take-Profit Ladder is DISABLED.")
 
 
     def _get_tiered_risk_params(self, equity: float) -> Tuple[float, int]:
@@ -3556,24 +3889,21 @@ class Backtester:
 
     def run_backtest_chunk(self, df_chunk_in: pd.DataFrame, pipelines: Union[Pipeline, Dict[str, Any]], initial_equity: float, feature_list: List[str], confidence_threshold: float, trade_lockout_until: Optional[pd.Timestamp] = None, is_minirocket_model: bool = False) -> Tuple[pd.DataFrame, pd.Series, bool, Optional[Dict], Dict]:
         if df_chunk_in.empty or not pipelines or not feature_list:
-            logger.warning("Backtest chunk, pipelines, or feature_list is empty. Returning initial state.")
             return pd.DataFrame(), pd.Series([initial_equity] if initial_equity is not None else [], dtype=float), False, None, {}
 
         df_chunk = df_chunk_in.copy()
         trades_log: List[Dict] = []
         equity: float = initial_equity
         equity_curve_values: List[float] = [initial_equity]
-        open_positions: Dict[str, Dict] = {}
+        # MODIFIED: open_positions now holds a list of parcels for each symbol
+        open_positions: Dict[str, List[Dict]] = defaultdict(list)
         chunk_peak_equity: float = initial_equity
         circuit_breaker_tripped: bool = False
         breaker_details: Optional[Dict] = None
-        last_trade_pnl_val: float = 0.0
         daily_metrics_report: Dict[str, Dict] = {}
         current_trading_day: Optional[date] = None
         day_start_equity_val: float = initial_equity
-        day_peak_equity_val: float = initial_equity
-
-        lookback_window = 100
+        day_peak_equity_val: float = day_start_equity_val
 
         def finalize_daily_metrics_helper(day_obj: Optional[date], equity_at_day_close: float):
             nonlocal day_start_equity_val, day_peak_equity_val
@@ -3582,27 +3912,31 @@ class Backtester:
             daily_dd_val = (day_peak_equity_val - equity_at_day_close) / day_peak_equity_val if day_peak_equity_val > 0 else 0.0
             daily_metrics_report[day_obj.isoformat()] = {'pnl': round(daily_pnl, 2), 'drawdown_pct': round(daily_dd_val * 100, 2)}
 
-        def close_trade_helper(pos_details: Dict, exit_price_val: float, exit_reason_str: str, candle_at_exit: Dict, is_ambiguous_exit: bool = False):
-            nonlocal equity, last_trade_pnl_val
-            pnl_gross = (exit_price_val - pos_details['entry_price']) * pos_details['direction'] * pos_details['lot_size'] * self.config.CONTRACT_SIZE
-            commission_cost = self.config.COMMISSION_PER_LOT * pos_details['lot_size'] * 2
-            _, exit_slippage_price_units = self._calculate_realistic_costs(candle_at_exit, on_exit=True)
-            slippage_cost_currency = exit_slippage_price_units * pos_details['lot_size'] * self.config.CONTRACT_SIZE
-            pnl_net = pnl_gross - commission_cost - slippage_cost_currency
+        def close_trade_parcel(parcel_details: Dict, exit_price: float, exit_reason: str, exit_candle: Dict):
+            nonlocal equity
+            contract_size = parcel_details.get('contract_size', 100000.0)
+            pnl_gross = (exit_price - parcel_details['entry_price']) * parcel_details['direction'] * parcel_details['lot_size'] * contract_size
+            
+            # Commission is paid once on entry for the whole trade. We account for it when the first parcel closes.
+            commission_cost = (self.config.COMMISSION_PER_LOT * parcel_details['total_trade_lot_size'] * 2) if parcel_details.get('is_first_parcel', False) else 0
+            
+            _, exit_slippage_units = self._calculate_realistic_costs(exit_candle, on_exit=True)
+            slippage_cost = exit_slippage_units * parcel_details['lot_size'] * contract_size
+            
+            pnl_net = pnl_gross - commission_cost - slippage_cost
             equity += pnl_net
-            last_trade_pnl_val = pnl_net
-            mae_price_units = abs(pos_details['mae_price'] - pos_details['entry_price'])
-            mfe_price_units = abs(pos_details['mfe_price'] - pos_details['entry_price'])
-            trades_log.append({
-                'ExecTime': candle_at_exit['Timestamp'], 'Symbol': pos_details['symbol'], 'PNL': pnl_net,
-                'Equity': equity, 'Confidence': pos_details.get('confidence', 0.0), 'Direction': pos_details['direction'],
-                'ExitReason': exit_reason_str, 'MAE_Points': round(mae_price_units, 5),
-                'MFE_Points': round(mfe_price_units, 5), 'AmbiguousExit': is_ambiguous_exit
-            })
+            
+            trades_log.append({ 'ExecTime': exit_candle['Timestamp'], 'Symbol': parcel_details['symbol'], 'PNL': pnl_net, 'Equity': equity, 'ExitReason': exit_reason })
             equity_curve_values.append(equity)
-            return pnl_net
+            
+            close_msg = f"Closed {parcel_details['symbol']} Parcel ({'Long' if parcel_details['direction']==1 else 'Short'}) for PNL: ${pnl_net:,.2f} ({exit_reason})"
+            logger.info(close_msg, extra={'is_trade_status': True})
+            console_msg = f"  > LIVE [Open Parcels: {sum(len(v) for v in open_positions.values())-1}] Last Event: {close_msg}"
+            sys.stdout.write(f"\r{console_msg.ljust(120)}\x1b[K")
+            sys.stdout.flush()
 
         candles_as_dicts = df_chunk.reset_index().to_dict('records')
+        lookback_window = 100
         start_index = lookback_window if is_minirocket_model else 1
 
         for i in range(start_index, len(candles_as_dicts)):
@@ -3619,26 +3953,39 @@ class Backtester:
                 logger.critical(f"Equity is zero or negative at {current_ts}. Stopping backtest chunk.")
                 break
 
-            if not circuit_breaker_tripped:
-                day_peak_equity_val = max(day_peak_equity_val, equity)
-                chunk_peak_equity = max(chunk_peak_equity, equity)
-                if (chunk_peak_equity - equity) / chunk_peak_equity > self.config.MAX_DD_PER_CYCLE:
-                    circuit_breaker_tripped = True
-                    breaker_details = {"num_trades_before_trip": len(trades_log), "equity_at_trip": equity}
-                    logger.warning(f"CIRCUIT BREAKER TRIPPED at {current_ts}!")
-                    for sym_key in list(open_positions.keys()):
-                        close_trade_helper(open_positions[sym_key], current_candle['Open'], "Circuit Breaker", current_candle, is_ambiguous_exit=False)
-                        del open_positions[sym_key]
+            day_peak_equity_val = max(day_peak_equity_val, equity)
+            chunk_peak_equity = max(chunk_peak_equity, equity)
+            if not circuit_breaker_tripped and (chunk_peak_equity - equity) / chunk_peak_equity > self.config.MAX_DD_PER_CYCLE:
+                circuit_breaker_tripped = True
+                breaker_details = {"num_trades_before_trip": len(trades_log), "equity_at_trip": equity}
+                logger.warning(f"CIRCUIT BREAKER TRIPPED at {current_ts}!")
+                for symbol, parcels in list(open_positions.items()):
+                    for parcel in list(parcels):
+                        close_trade_parcel(parcel, current_candle['Open'], "Circuit Breaker", current_candle)
+                    open_positions[symbol].clear()
+                continue
+
+            for symbol, parcels in list(open_positions.items()):
+                if not parcels: continue
+                sl_price = parcels[0]['sl']
+                direction = parcels[0]['direction']
+                sl_hit = (current_candle['Low'] <= sl_price) if direction == 1 else (current_candle['High'] >= sl_price)
+
+                if sl_hit:
+                    for parcel in list(parcels):
+                        close_trade_parcel(parcel, sl_price, "Stop Loss", current_candle)
+                    open_positions[symbol].clear()
                     continue
 
-            for sym_key, pos in list(open_positions.items()):
-                high, low, sl, tp = current_candle['High'], current_candle['Low'], pos['sl'], pos['tp']
-                sl_hit = (low <= sl) if pos['direction'] == 1 else (high >= sl)
-                tp_hit = (high >= tp) if pos['direction'] == 1 else (low <= tp)
-                if sl_hit or tp_hit:
-                    exit_price, reason, ambiguous = (sl, "Stop Loss", sl_hit and tp_hit) if sl_hit else (tp, "Take Profit", False)
-                    close_trade_helper(pos, exit_price, reason, current_candle, is_ambiguous_exit=ambiguous)
-                    del open_positions[sym_key]
+                for parcel in list(parcels):
+                    tp_price = parcel['tp']
+                    tp_hit = (current_candle['High'] >= tp_price) if direction == 1 else (current_candle['Low'] <= tp_price)
+                    if tp_hit:
+                        close_trade_parcel(parcel, tp_price, "Take Profit", current_candle)
+                        open_positions[symbol].remove(parcel)
+
+            for symbol in [s for s, p in open_positions.items() if not p]:
+                del open_positions[symbol]
 
             symbol = prev_candle['Symbol']
             risk_pct, max_trades = self._get_tiered_risk_params(equity) if self.config.USE_TIERED_RISK else (self.config.BASE_RISK_PER_TRADE_PCT, self.config.MAX_CONCURRENT_TRADES)
@@ -3664,31 +4011,44 @@ class Backtester:
                     if direction != 0:
                         atr = prev_candle.get('ATR', 0.0)
                         if pd.isna(atr) or atr <= 1e-9: continue
+                        
+                        contract_size = self.config.ASSET_CONTRACT_SIZES.get(symbol, self.config.ASSET_CONTRACT_SIZES.get('default', 100000.0))
                         sl_dist = atr * self.config.SL_ATR_MULTIPLIER
                         risk_usd = equity * risk_pct
+                        risk_per_lot = sl_dist * contract_size
+                        if risk_per_lot <= 1e-9: continue
+
+                        total_lot_size = max(round((risk_usd / risk_per_lot) / self.config.LOT_STEP) * self.config.LOT_STEP, self.config.MIN_LOT_SIZE)
+                        
                         spread, slippage = self._calculate_realistic_costs(prev_candle)
                         latency_cost = self._calculate_latency_cost(prev_candle, current_candle)
                         entry_price = current_candle['Open'] + (spread + slippage + latency_cost) * direction
                         sl_price = entry_price - sl_dist * direction
-                        tp_price = entry_price + sl_dist * self.config.TP_ATR_MULTIPLIER * direction
+                        
+                        margin_needed = (total_lot_size * contract_size * entry_price) / self.config.LEVERAGE
+                        if equity - sum(p['lot_size'] * p['contract_size'] * p['entry_price'] / self.config.LEVERAGE for parcels in open_positions.values() for p in parcels) < margin_needed: continue
 
-                        is_jpy = 'JPY' in symbol.upper()
-                        point_size = 0.01 if is_jpy else 0.0001
-                        value_per_point_lot = self.config.CONTRACT_SIZE * point_size
-                        risk_per_lot = sl_dist * value_per_point_lot
-                        if risk_per_lot <= 1e-9: continue
+                        if self.use_tp_ladder:
+                            for idx, (pct, mult) in enumerate(zip(self.config.TP_LADDER_LEVELS_PCT, self.config.TP_LADDER_RISK_MULTIPLIERS)):
+                                open_positions[symbol].append({
+                                    'symbol': symbol, 'direction': direction, 'entry_price': entry_price, 'sl': sl_price,
+                                    'tp': entry_price + (sl_dist * mult * direction), 'lot_size': total_lot_size * pct,
+                                    'contract_size': contract_size, 'is_first_parcel': idx == 0, 'total_trade_lot_size': total_lot_size
+                                })
+                        else:
+                            open_positions[symbol].append({
+                                'symbol': symbol, 'direction': direction, 'entry_price': entry_price, 'sl': sl_price,
+                                'tp': entry_price + sl_dist * self.config.TP_ATR_MULTIPLIER * direction, 'lot_size': total_lot_size,
+                                'contract_size': contract_size, 'is_first_parcel': True, 'total_trade_lot_size': total_lot_size
+                            })
+                        
+                        trade_msg = f"Opened {'Long' if direction == 1 else 'Short'} for {symbol} at {entry_price:.5f} | Total Lots: {total_lot_size:.2f} | SL: {sl_price:.5f}"
+                        logger.info(trade_msg, extra={'is_trade_status': True})
+                        console_msg = f"  > LIVE [Open Parcels: {sum(len(v) for v in open_positions.values())}] Last Event: {trade_msg}"
+                        sys.stdout.write(f"\r{console_msg.ljust(120)}\x1b[K")
+                        sys.stdout.flush()
 
-                        lot_size = round((risk_usd / risk_per_lot) / self.config.LOT_STEP) * self.config.LOT_STEP
-                        lot_size = max(lot_size, self.config.MIN_LOT_SIZE)
-
-                        margin_needed = (lot_size * self.config.CONTRACT_SIZE * entry_price) / self.config.LEVERAGE
-                        if equity - sum(p.get('margin_used', 0) for p in open_positions.values()) < margin_needed: continue
-
-                        open_positions[symbol] = {'symbol': symbol, 'direction': direction, 'entry_price': entry_price, 'sl': sl_price, 'tp': tp_price,
-                                                  'confidence': confidence, 'lot_size': lot_size, 'margin_used': margin_needed,
-                                                  'mfe_price': entry_price, 'mae_price': entry_price, 'entry_candle_timestamp': current_ts}
-                        logger.info(f"Opened {'Long' if direction == 1 else 'Short'} for {symbol} at {entry_price:.5f}")
-
+        sys.stdout.write('\n')
         if current_trading_day is not None:
             finalize_daily_metrics_helper(current_trading_day, equity_curve_values[-1] if equity_curve_values else initial_equity)
 
@@ -3752,7 +4112,6 @@ class PerformanceAnalyzer:
         m['total_net_profit']=m['ending_capital']-m['initial_capital']
         m['net_profit_pct']=(m['total_net_profit']/m['initial_capital']) if m['initial_capital']>0 else 0
 
-        returns=trades_df['PNL']/m['initial_capital']
         wins=trades_df[trades_df['PNL']>0]
         losses=trades_df[trades_df['PNL']<0]
         m['gross_profit']=wins['PNL'].sum()
@@ -3784,13 +4143,35 @@ class PerformanceAnalyzer:
         years=((exec_times.max()-exec_times.min()).days/365.25) if not trades_df.empty else 1
         years = max(years, 1/365.25)
         m['cagr']=(((m['ending_capital']/m['initial_capital'])**(1/years))-1) if years>0 and m['initial_capital']>0 else 0
+        
+        # --- CORRECTED SHARPE & SORTINO RATIO CALCULATION ---
+        if not trades_df.empty and 'ExecTime' in trades_df.columns:
+            pnl_over_time = pd.DataFrame({'pnl': trades_df['PNL'].values}, index=pd.to_datetime(trades_df['ExecTime']))
+            daily_pnl = pnl_over_time.resample('D').sum()
+            daily_equity = (m['initial_capital'] + daily_pnl['pnl'].cumsum()).ffill()
+            daily_returns = daily_equity.pct_change().fillna(0)
 
-        pnl_std=returns.std()
-        m['sharpe_ratio']=(returns.mean()/pnl_std)*np.sqrt(252*24*4) if pnl_std>0 else 0
-        downside_returns=returns[returns<0]
-        downside_std=downside_returns.std()
-        m['sortino_ratio']=(returns.mean()/downside_std)*np.sqrt(252*24*4) if downside_std>0 else np.inf
+            if len(daily_returns) > 1:
+                # Sharpe Ratio based on daily returns
+                mean_daily_return = daily_returns.mean()
+                std_daily_return = daily_returns.std()
+                m['sharpe_ratio'] = (mean_daily_return / std_daily_return) * np.sqrt(252) if std_daily_return > 0 else 0.0
+
+                # Sortino Ratio based on daily returns and correct downside deviation
+                target_return = 0.0
+                downside_returns = daily_returns[daily_returns < target_return]
+                downside_std = np.sqrt(np.mean(np.square(downside_returns - target_return)))
+                m['sortino_ratio'] = (mean_daily_return / downside_std) * np.sqrt(252) if downside_std > 0 else np.inf
+            else:
+                m['sharpe_ratio'] = 0.0
+                m['sortino_ratio'] = 0.0
+        else:
+            m['sharpe_ratio'] = 0.0
+            m['sortino_ratio'] = 0.0
+
         m['calmar_ratio']=m['cagr']/(m['max_drawdown_pct']/100) if m['max_drawdown_pct']>0 else np.inf
+        # --- END OF CORRECTION ---
+
         m['mar_ratio']=m['calmar_ratio']
         m['recovery_factor']=m['total_net_profit']/m['max_drawdown_abs'] if m['max_drawdown_abs']>0 else np.inf
 
@@ -4040,6 +4421,33 @@ def get_macro_context_data(
 # 9. FRAMEWORK ORCHESTRATION & MEMORY
 # =============================================================================
 
+def _get_available_features_from_df(df: pd.DataFrame) -> List[str]:
+    """
+    Identifies and returns a list of feature columns from a dataframe,
+    excluding non-feature columns like OHLC, target, or identifiers.
+    """
+    if df is None or df.empty:
+        return []
+        
+    NON_FEATURE_COLS = [
+        'Open', 'High', 'Low', 'Close', 'RealVolume', 'Symbol', 'Timestamp',
+        'target', 'signal_pressure'
+    ]
+    
+    # Start with all columns
+    feature_cols = list(df.columns)
+    
+    # Remove non-feature columns by exact match
+    feature_cols = [col for col in feature_cols if col not in NON_FEATURE_COLS]
+    
+    # Remove columns by pattern (e.g., any other target representation or stop-loss levels)
+    feature_cols = [col for col in feature_cols if not col.startswith('target_')]
+    feature_cols = [col for col in feature_cols if not col.startswith('stop_loss')]
+    
+    logger.info(f"  - Identified {len(feature_cols)} available engineered features from DataFrame.")
+    
+    return feature_cols
+
 def run_monte_carlo_simulation(price_series: pd.Series, n_simulations: int = 5000, n_days: int = 90) -> np.ndarray:
     """Generates Monte Carlo price path simulations using Geometric Brownian Motion."""
     log_returns = np.log(1 + price_series.pct_change())
@@ -4129,18 +4537,26 @@ def load_memory(champion_path: str, history_path: str) -> Dict:
     return {"champion_config": champion_config, "historical_runs": historical_runs}
 
 def _recursive_sanitize(data: Any) -> Any:
-    """Recursively traverses a dict/list to convert non-JSON-serializable types."""
+    """Recursively traverses a dict/list to convert non-JSON-serializable types, including keys."""
     if isinstance(data, dict):
-        return {key: _recursive_sanitize(value) for key, value in data.items()}
+        # Sanitize both keys and values
+        return {
+            _recursive_sanitize(key): _recursive_sanitize(value) 
+            for key, value in data.items()
+        }
     if isinstance(data, list):
         return [_recursive_sanitize(item) for item in data]
-    if isinstance(data, Enum): return data.value
-    if isinstance(data, (np.int64, np.int32)): return int(data)
+    if isinstance(data, Enum): 
+        return data.value # This converts the Enum object to its string value
+    if isinstance(data, (np.int64, np.int32)): 
+        return int(data)
     if isinstance(data, (np.float64, np.float32)):
         if np.isnan(data) or np.isinf(data): return None
         return float(data)
-    if isinstance(data, (pd.Timestamp, datetime, date)): return data.isoformat()
-    if isinstance(data, pathlib.Path): return str(data)
+    if isinstance(data, (pd.Timestamp, datetime, date)): 
+        return data.isoformat()
+    if isinstance(data, pathlib.Path): 
+        return str(data)
     return data
 
 def save_run_to_memory(config: ConfigModel, new_run_summary: Dict, current_memory: Dict, diagnosed_regime: str) -> Optional[Dict]:
@@ -4215,53 +4631,93 @@ def initialize_playbook(playbook_path: str) -> Dict:
     to serve as a robust fallback if the AI fails to provide a list.
     """
     DEFAULT_PLAYBOOK = {
+        "EvolvedRuleStrategy": {
+            "description": "[EVOLUTIONARY] A meta-strategy that uses a Genetic Programmer to discover novel trading rules from scratch. The AI defines a gene pool of indicators and operators, and the GP evolves the optimal combination. This is the ultimate tool for breaking deadlocks or finding a new edge.",
+            "style": "evolutionary_feature_generation",
+            "complexity": "high",
+            "ideal_regime": ["Any"],
+        },
         "EmaCrossoverRsiFilter": {
             "description": "[DIAGNOSTIC/MOMENTUM] A simple baseline strategy. Enters on an EMA cross, filtered by a basic RSI condition.",
             "style": "momentum",
             "selected_features": ['EMA_20', 'EMA_50', 'RSI', 'ADX', 'ATR'],
-            "complexity": "low", "ideal_regime": ["Trending"], "asset_class_suitability": ["Any"], "ideal_macro_env": ["Any"]
+            "complexity": "low",
+            "ideal_regime": ["Trending"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Any"]
         },
         "MeanReversionBollinger": {
             "description": "[DIAGNOSTIC/REVERSION] A simple baseline strategy. Enters when price touches Bollinger Bands in a low-ADX environment.",
             "style": "mean_reversion",
             "selected_features": ['bollinger_bandwidth', 'RSI', 'ADX', 'market_regime', 'stoch_k'],
-            "complexity": "low", "ideal_regime": ["Ranging"], "asset_class_suitability": ["Any"], "ideal_macro_env": ["Neutral"]
+            "complexity": "low",
+            "ideal_regime": ["Ranging"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Neutral"]
         },
         "BreakoutVolumeSpike": {
-             "description": "[DIAGNOSTIC/VOLATILITY] A simple baseline strategy that looks for price breakouts accompanied by a significant increase in volume.",
-             "style": "volatility_breakout",
-             "selected_features": ['ATR', 'volume_ma_ratio', 'bollinger_bandwidth', 'ADX', 'RealVolume'],
-             "complexity": "low", "ideal_regime": ["Low Volatility"], "asset_class_suitability": ["Any"], "ideal_macro_env": ["Any"]
+            "description": "[DIAGNOSTIC/VOLATILITY] A simple baseline strategy that looks for price breakouts accompanied by a significant increase in volume.",
+            "style": "volatility_breakout",
+            "selected_features": ['ATR', 'volume_ma_ratio', 'bollinger_bandwidth', 'ADX', 'RealVolume'],
+            "complexity": "low",
+            "ideal_regime": ["Low Volatility"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Any"]
         },
         "ADXMomentum": {
             "description": "[MOMENTUM] A classic momentum strategy that enters when ADX confirms a strong trend and MACD indicates accelerating momentum.",
             "style": "momentum",
             "selected_features": ['ADX', 'MACD_hist', 'momentum_20', 'market_regime', 'EMA_50', 'DAILY_ctx_Trend'],
-            "complexity": "medium", "ideal_regime": ["Strong Trending"], "asset_class_suitability": ["Any"], "ideal_macro_env": ["Any"]
+            "complexity": "medium",
+            "ideal_regime": ["Strong Trending"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Any"]
         },
         "ClassicBollingerRSI": {
             "description": "[RANGING] A traditional mean-reversion strategy entering at the outer bands, filtered by low trend strength.",
             "style": "mean_reversion",
             "selected_features": ['bollinger_bandwidth', 'RSI', 'ADX', 'market_regime', 'stoch_k', 'cci'],
-            "complexity": "low", "ideal_regime": ["Ranging"], "asset_class_suitability": ["Any"], "ideal_macro_env": ["Neutral"]
+            "complexity": "low",
+            "ideal_regime": ["Ranging"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Neutral"]
         },
         "VolatilityExpansionBreakout": {
             "description": "[BREAKOUT] Enters on strong breakouts that occur after a period of low-volatility consolidation (Bollinger Squeeze).",
             "style": "volatility_breakout",
             "selected_features": ['bollinger_bandwidth', 'ATR', 'market_volatility_index', 'DAILY_ctx_Trend', 'volume_ma_ratio'],
-            "complexity": "medium", "ideal_regime": ["Low Volatility"], "asset_class_suitability": ["Any"], "ideal_macro_env": ["Event-Driven"]
+            "complexity": "medium",
+            "ideal_regime": ["Low Volatility"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Event-Driven"]
         },
         "GNN_Market_Structure": {
             "description": "[SPECIALIZED] Uses a GNN to model inter-asset correlations for predictive features.",
             "style": "graph_based",
             "selected_features": ['ATR', 'RSI', 'ADX', 'bollinger_bandwidth', 'stoch_k', 'momentum_20'], # Base features for nodes
-            "requires_gnn": True, "complexity": "specialized", "ideal_regime": ["Any"], "asset_class_suitability": ["Any"]
+            "requires_gnn": True,
+            "complexity": "specialized",
+            "ideal_regime": ["Any"],
+            "asset_class_suitability": ["Any"]
         },
         "Meta_Labeling_Filter": {
             "description": "[SPECIALIZED] Uses a secondary ML filter to improve a simple primary model's signal quality.",
             "style": "filter",
             "selected_features": ['ADX', 'ATR', 'bollinger_bandwidth', 'H1_ctx_Trend', 'DAILY_ctx_Trend', 'momentum_20', 'relative_performance'],
-            "requires_meta_labeling": True, "complexity": "specialized", "ideal_regime": ["Any"], "asset_class_suitability": ["Any"]
+            "requires_meta_labeling": True,
+            "complexity": "specialized",
+            "ideal_regime": ["Any"],
+            "asset_class_suitability": ["Any"]
+        },
+        "MiniRocketVolatility": {
+            "description": "[SPECIALIZED/VOLATILITY] Uses the MiniRocket transform on raw time series to capture complex patterns. Best suited for volatile markets where traditional indicators may fail. Classifies based on recent price, volume, and ATR shape.",
+            "style": "time_series_shape",
+            "selected_features": ['Close', 'RealVolume', 'ATR'],
+            "requires_minirocket": True,
+            "complexity": "specialized",
+            "ideal_regime": ["Volatility Spike", "Trending"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Any"]
         },
         "RelativeStrengthOutlier": {
             "description": "[MOMENTUM/MACRO] A strategy that enters long on assets demonstrating high relative strength against the S&P 500, but only when the S&P 500 itself is in a confirmed long-term uptrend. This aims to capture market leaders during a bull phase.",
@@ -4278,9 +4734,18 @@ def initialize_playbook(playbook_path: str) -> Dict:
             "ideal_regime": ["Trending"],
             "asset_class_suitability": ["Stocks", "Indices"],
             "ideal_macro_env": ["Risk-On"]
+        },     
+        "Alpha_Combiner_XGB": {
+            "description": "[AI-DRIVEN/AGGREGATOR] Uses a diverse basket of internally-generated technical and statistical signals (micro-alphas) and combines them using an XGBoost model to create a single, robust predictive signal. This strategy directly implements the 'Power of Alpha' philosophy.",
+            "lookahead_range": [50, 150],
+            "dd_range": [0.15, 0.30],
+            "complexity": "high",
+            "ideal_regime": ["Any"],
+            "asset_class_suitability": ["Any"],
+            "ideal_macro_env": ["Any"]
         }
     }
-    
+
     if not os.path.exists(playbook_path):
         logger.warning(f"'strategy_playbook.json' not found. Seeding a new one at: {playbook_path}")
         try:
@@ -4290,23 +4755,18 @@ def initialize_playbook(playbook_path: str) -> Dict:
         except IOError as e:
             logger.error(f"Failed to create playbook file: {e}. Using in-memory default.")
             return DEFAULT_PLAYBOOK
-            
+
     try:
         with open(playbook_path, 'r') as f:
             playbook = json.load(f)
 
         updated = False
-        # Loop through default playbook to add missing strategies or missing feature lists
         for strategy_name, default_config in DEFAULT_PLAYBOOK.items():
             if strategy_name not in playbook:
                 playbook[strategy_name] = default_config
                 logger.info(f"  - Adding new strategy to playbook: '{strategy_name}'")
                 updated = True
-            elif 'selected_features' not in playbook[strategy_name]:
-                 playbook[strategy_name]['selected_features'] = default_config.get('selected_features', [])
-                 logger.info(f"  - Adding missing 'selected_features' list to strategy: '{strategy_name}'")
-                 updated = True
-
+        
         if updated:
             logger.info("Playbook was updated. Saving changes...")
             with open(playbook_path, 'w') as f:
@@ -4952,18 +5412,44 @@ def generate_dynamic_config(primary_asset_class: str, base_config: Dict) -> Dict
         })
     return dynamic_config
 
-def _update_operating_state(config: ConfigModel, cycle_history: List[Dict], current_state: OperatingState) -> OperatingState:
+def _update_operating_state(config: ConfigModel, cycle_history: List[Dict], current_state: OperatingState, df_slice: pd.DataFrame) -> OperatingState:
     """
-    Analyzes recent performance to determine the next operating state.
+    Analyzes recent performance and market data to determine the next operating state.
     """
+    if df_slice.empty:
+        return current_state # Cannot analyze market conditions without data
+
+    # --- Priority 1: Check for external or critical overrides ---
+    is_maintenance, reason = _is_maintenance_period()
+    if is_maintenance:
+        if current_state != OperatingState.MAINTENANCE_DORMANCY:
+            logger.warning(f"! STATE CHANGE ! Entering MAINTENANCE_DORMANCY due to: {reason}")
+            return OperatingState.MAINTENANCE_DORMANCY
+        return current_state
+
+    # --- Priority 2: Check for acute market conditions based on recent data ---
+    # Liquidity Crunch Check (if illiquidity metric spikes)
+    if 'illiquidity_ratio' in df_slice.columns:
+        liquidity_threshold = 0.3 # Example threshold; tune based on asset
+        if df_slice['illiquidity_ratio'].iloc[-1] > liquidity_threshold:
+            logger.warning(f"! STATE CHANGE ! Illiquidity ratio ({df_slice['illiquidity_ratio'].iloc[-1]:.3f}) exceeds threshold. Entering LIQUIDITY_CRUNCH.")
+            return OperatingState.LIQUIDITY_CRUNCH
+            
+    # Volatility Spike Check
+    atr_short = df_slice['ATR'].ewm(span=5, adjust=False).mean().iloc[-1]
+    atr_long = df_slice['ATR'].ewm(span=50, adjust=False).mean().iloc[-1]
+    if atr_long > 0 and (atr_short / atr_long) > 2.5: # If short-term ATR is 2.5x long-term
+        logger.warning(f"! STATE CHANGE ! ATR ratio ({atr_short/atr_long:.2f}) indicates volatility spike. Entering VOLATILITY_SPIKE.")
+        return OperatingState.VOLATILITY_SPIKE
+
+    # --- Priority 3: Check for performance-based state changes ---
     if not cycle_history:
-        return current_state # No history, no change
+        return current_state # No history, no performance-based change
 
     last_cycle = cycle_history[-1]
-    metrics = last_cycle.get("metrics", {})
     status = last_cycle.get("status")
-    
-    # Priority 1: If circuit breaker was tripped, immediately move to Drawdown Control
+
+    # If circuit breaker was tripped, immediately move to Drawdown Control
     if status == "Breaker Tripped":
         if current_state != OperatingState.DRAWDOWN_CONTROL:
             logger.warning("! STATE CHANGE ! Circuit breaker tripped. Moving to DRAWDOWN_CONTROL.")
@@ -4972,11 +5458,16 @@ def _update_operating_state(config: ConfigModel, cycle_history: List[Dict], curr
             logger.info("Remains in DRAWDOWN_CONTROL after another breaker trip.")
             return OperatingState.DRAWDOWN_CONTROL
 
-    # Analyze performance to decide on other state changes
+    # If we were in a temporary state (like a volatility spike), revert to baseline
+    if current_state in [OperatingState.VOLATILITY_SPIKE, OperatingState.LIQUIDITY_CRUNCH, OperatingState.NEWS_SENTIMENT_ALERT]:
+        logger.info(f"! STATE CHANGE ! Reverting from temporary state '{current_state.value}' to CONSERVATIVE_BASELINE.")
+        return OperatingState.CONSERVATIVE_BASELINE
+        
+    # Standard performance-based transitions
+    metrics = last_cycle.get("metrics", {})
     mar_ratio = metrics.get('mar_ratio', 0)
     pnl = metrics.get('TotalPNL', 0)
 
-    # Logic for moving out of Drawdown Control
     if current_state == OperatingState.DRAWDOWN_CONTROL:
         if pnl > 0 and mar_ratio > 0.3:
             logger.info("! STATE CHANGE ! Positive performance observed. Moving from Drawdown Control to CONSERVATIVE_BASELINE.")
@@ -4985,26 +5476,17 @@ def _update_operating_state(config: ConfigModel, cycle_history: List[Dict], curr
             logger.info("Performance still weak. Remaining in DRAWDOWN_CONTROL.")
             return OperatingState.DRAWDOWN_CONTROL
     
-    # Logic for moving from Baseline to Aggressive
     if current_state == OperatingState.CONSERVATIVE_BASELINE:
         if len(cycle_history) >= 2:
-            # Check if last two cycles were profitable and stable
             last_two_cycles_ok = all(c.get("metrics", {}).get("TotalPNL", -1) >= 0 and not c.get("metrics", {}).get("BreakerTripped") for c in cycle_history[-2:])
             if last_two_cycles_ok:
                 logger.info("! STATE CHANGE ! Consistent positive performance. Moving from Baseline to AGGRESSIVE_EXPANSION.")
                 return OperatingState.AGGRESSIVE_EXPANSION
     
-    # Logic for moving from Aggressive back to Baseline (a sign of trouble)
     if current_state == OperatingState.AGGRESSIVE_EXPANSION:
         if pnl < 0 or mar_ratio < 0.2:
             logger.warning("! STATE CHANGE ! Performance dip detected. Moving from Aggressive back to CONSERVATIVE_BASELINE.")
             return OperatingState.CONSERVATIVE_BASELINE
-            
-    # If in Opportunistic Surge, revert to the previous state after one cycle
-    # (This assumes the state before surge is tracked, or it defaults to baseline)
-    if current_state == OperatingState.OPPORTUNISTIC_SURGE:
-         logger.info("! STATE CHANGE ! Opportunistic Surge cycle complete. Reverting to CONSERVATIVE_BASELINE.")
-         return OperatingState.CONSERVATIVE_BASELINE
 
     # Default: no change
     return current_state
@@ -5069,6 +5551,78 @@ def _generate_pre_analysis_summary(df_train: pd.DataFrame, features: list, targe
     learnability_report = _run_feature_learnability_test(df_train, features, target)
     return f"{label_report}\n{learnability_report}"
 
+def get_and_cache_contract_sizes(symbols: List[str], config: ConfigModel, gemini_analyzer: GeminiAnalyzer, api_timer: APITimer) -> Dict[str, float]:
+    """
+    Dynamically fetches and caches contract sizes for assets using the AI.
+    If a valid cache exists for the current set of symbols, it is used.
+    Otherwise, it calls the Gemini API and saves the new results.
+    """
+    cache_path = os.path.join(config.BASE_PATH, "Results", "contract_sizes_cache.json")
+    
+    # 1. Check cache first
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, 'r') as f:
+                cached_data = json.load(f)
+            # Check if the cached symbols exactly match the current symbols
+            if set(cached_data.keys()) == set(symbols):
+                logger.info("Contract sizes loaded from cache.")
+                return cached_data
+            else:
+                logger.info("Contract size cache is for a different set of assets. Re-fetching from AI.")
+        except (IOError, json.JSONDecodeError) as e:
+            logger.warning(f"Could not read contract size cache, will re-fetch. Error: {e}")
+
+    # 2. If cache miss or invalid, call the AI
+    logger.info("-> No valid contract size cache found. Fetching from AI...")
+    ai_contract_sizes = api_timer.call(gemini_analyzer.get_contract_sizes_for_assets, symbols)
+
+    # 3. Save to cache if successful
+    if ai_contract_sizes:
+        try:
+            with open(cache_path, 'w') as f:
+                json.dump(ai_contract_sizes, f, indent=4)
+            logger.info(f"Contract sizes saved to cache at {cache_path}")
+        except IOError as e:
+            logger.error(f"Could not save contract size cache: {e}")
+        return ai_contract_sizes
+    
+    # 4. Fallback if AI fails completely
+    logger.error("Failed to get contract sizes from AI. Returning empty dict.")
+    return {}
+
+def _create_historical_performance_summary_for_ai(cycle_history: List[Dict]) -> str:
+    """
+    Creates a concise, natural language summary of the run's history for the AI to analyze.
+    """
+    if not cycle_history:
+        return "No performance history yet. This is the first cycle."
+
+    summary = "### Walk-Forward Performance Summary ###\n\n"
+    for i, cycle in enumerate(cycle_history):
+        metrics = cycle.get('metrics', {})
+        config_used = cycle.get('config_at_cycle_start', {})
+        status = cycle.get('status', 'Unknown')
+        
+        summary += f"--- Cycle {i+1} ---\n"
+        summary += f"- **Status:** {status}\n"
+        summary += f"- **Strategy Used:** {config_used.get('strategy_name', 'N/A')}\n"
+        summary += f"- **Key Params:** TP_Mult={config_used.get('TP_ATR_MULTIPLIER', 'N/A')}, SL_Mult={config_used.get('SL_ATR_MULTIPLIER', 'N/A')}, Confidence={config_used.get('STATIC_CONFIDENCE_GATE', 'Dynamic')}\n"
+        
+        if status == "Breaker Tripped":
+            pnl = metrics.get('TotalPNL', 0)
+            trades = metrics.get('NumTrades', 0)
+            summary += f"- **Outcome:** CIRCUIT BREAKER TRIPPED. PNL: ${pnl:,.2f} from {trades} trades.\n\n"
+        elif status == "Completed":
+            pnl = metrics.get('total_net_profit', 0)
+            trades = metrics.get('total_trades', 0)
+            mar = metrics.get('mar_ratio', 0)
+            summary += f"- **Outcome:** PNL: ${pnl:,.2f}, Trades: {trades}, MAR Ratio: {mar:.2f}\n\n"
+        else:
+            summary += "- **Outcome:** Training or another error occurred.\n\n"
+            
+    return summary
+
 def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Dict, playbook_loaded: Dict, nickname_ledger_loaded: Dict, directives_loaded: List[Dict], api_interval_seconds: int):
 
     run_timestamp_str = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -5097,7 +5651,7 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
     _setup_logging(prelim_log_path, temp_config_for_paths_obj.REPORT_LABEL)
     logger = logging.getLogger("ML_Trading_Framework")
 
-    # --- Phase 2: Data Loading & Caching/Feature Engineering ---
+    # --- Phase 2: Data Loading & Initial Prep (Optimized Flow) ---
     data_loader = DataLoader(temp_config_for_paths_obj)
     all_files = [f for f in os.listdir(temp_config_for_paths_obj.BASE_PATH) if f.endswith(('.csv', '.txt')) and re.match(r'^[A-Z0-9]+_[A-Z0-9]+', f)]
     data_by_tf, detected_timeframes = data_loader.load_and_parse_data(all_files)
@@ -5107,10 +5661,59 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
     
     tf_roles = determine_timeframe_roles(detected_timeframes)
     
-    # Instantiate the FeatureEngineer, it will be used multiple times
+    # --- DYNAMICALLY GET AND CACHE CONTRACT SIZES ---
+    symbols = sorted(list(set([f.split('_')[0] for f in all_files])))
+    dynamic_contract_sizes = get_and_cache_contract_sizes(symbols, temp_config_for_paths_obj, gemini_analyzer, api_timer)
+    
+    # --- THIS BLOCK IS THE FIX ---
+    if dynamic_contract_sizes:
+        # Get the field information for ASSET_CONTRACT_SIZES
+        asset_sizes_field = ConfigModel.model_fields.get('ASSET_CONTRACT_SIZES')
+        # Call the default_factory directly to get the default dictionary
+        if asset_sizes_field and asset_sizes_field.default_factory:
+            default_sizes = asset_sizes_field.default_factory()
+        else:
+            default_sizes = {} # Fallback if no factory is defined
+        
+        # Merge the dynamically fetched sizes on top of the defaults
+        final_sizes = {**default_sizes, **dynamic_contract_sizes}
+        fallback_config_dict['ASSET_CONTRACT_SIZES'] = final_sizes
+        logger.info("Framework configuration updated with dynamically fetched contract sizes.")
+    else:
+        logger.warning("Could not dynamically fetch contract sizes. The framework will use the hardcoded defaults.")
+    # --- END OF FIX ---
+    
+    # --- OPTIMIZATION: Prepare benchmark data BEFORE main feature engineering ---
+    logger.info("-> Pre-processing Universal S&P 500 (SPY) Benchmark Data...")
+    benchmark_cache_dir = os.path.join(temp_config_for_paths_obj.BASE_PATH, "data_cache_benchmark")
+    spy_data_handler = DataHandler(cache_dir=benchmark_cache_dir)
+    
+    base_tf_name = tf_roles.get('base')
+    if base_tf_name and base_tf_name in data_by_tf and not data_by_tf[base_tf_name].empty:
+        start_date_str = data_by_tf[base_tf_name].index.min().strftime('%Y-%m-%d')
+        end_date_str = data_by_tf[base_tf_name].index.max().strftime('%Y-%m-%d')
+        
+        spy_df = spy_data_handler.get_data("SPY", start_date=start_date_str, end_date=end_date_str)
+
+        daily_tf_name = tf_roles.get('high')
+        if daily_tf_name and daily_tf_name in data_by_tf and not spy_df.empty:
+            fe_for_benchmark = FeatureEngineer(temp_config_for_paths_obj, tf_roles, playbook_loaded)
+            daily_asset_df = data_by_tf[daily_tf_name]
+            
+            logger.info("  - Enriching D1 data with benchmark features before main feature engineering...")
+            daily_df_with_benchmark_features = fe_for_benchmark.engineer_daily_benchmark_features(daily_asset_df, spy_df)
+            
+            data_by_tf[daily_tf_name] = daily_df_with_benchmark_features
+            logger.info("  - D1 data enrichment complete. Proceeding to single feature engineering pass.")
+        else:
+            logger.warning("Could not process benchmark features (SPY or Daily asset data missing).")
+    else:
+        logger.warning("Base timeframe data not available to determine date range for SPY download.")
+
+    # --- Phase 2b: Single Feature Engineering Pass ---
     fe = FeatureEngineer(temp_config_for_paths_obj, tf_roles, playbook_loaded)
     base_tf_data = data_by_tf[tf_roles['base']]
-
+    
     full_df = None
     cache_is_valid = False
     current_metadata = _generate_cache_metadata(temp_config_for_paths_obj, all_files, tf_roles, FeatureEngineer)
@@ -5136,9 +5739,9 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
         logger.info("-> Feature caching is disabled in config. Recalculating features.")
         
     if not cache_is_valid:
-        logger.info("-> Starting feature engineering calculation...")
-        # Note: The initial fe instance is used here
-        full_df = fe.engineer_features(base_tf_data, data_by_tf)
+        logger.info("-> Starting single, integrated feature engineering calculation...")
+        # Pass the instances to the feature engineer
+        full_df = fe.engineer_features(base_tf_data, data_by_tf, gemini_analyzer, api_timer)
 
         if temp_config_for_paths_obj.USE_FEATURE_CACHING and not full_df.empty:
             try:
@@ -5173,6 +5776,16 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
     else:
         prime_directive = "OPTIMIZE PERFORMANCE. A successful trading baseline exists. Your priority is now to improve risk-adjusted returns (e.g., MAR Ratio), profitability, and model stability."
 
+    ai_fs_method = api_timer.call(
+        gemini_analyzer.propose_feature_selection_method,
+        num_features=full_df.shape[1],
+        num_samples=len(full_df),
+        directive=prime_directive
+    )
+    if ai_fs_method.get("FEATURE_SELECTION_METHOD"):
+        fallback_config_dict['FEATURE_SELECTION_METHOD'] = ai_fs_method["FEATURE_SELECTION_METHOD"]
+        logger.info(f"AI selected feature selection method: {ai_fs_method['FEATURE_SELECTION_METHOD']}. Reason: {ai_fs_method.get('analysis_notes')}")
+
     ai_comprehensive_setup = api_timer.call(
         gemini_analyzer.get_comprehensive_initial_setup,
         VERSION, nickname_ledger_loaded, framework_history_loaded, playbook_loaded,
@@ -5182,7 +5795,7 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
         prime_directive_str=prime_directive
     )
     
-    # --- Phase 4: Final Configuration & Logging ---
+    # --- Phase 4: Final Configuration ---
     ai_initial_suggestions = _validate_and_fix_spread_config(ai_comprehensive_setup, fallback_config_dict)
     final_config_dict = fallback_config_dict.copy()
     final_config_dict.update(_sanitize_ai_suggestions(ai_initial_suggestions))
@@ -5211,38 +5824,6 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
         
     _setup_logging(config.LOG_FILE_PATH, config.REPORT_LABEL)
     _log_config_and_environment(config)
-    
-    # Re-instantiate FeatureEngineer with the final, AI-driven config
-    fe = FeatureEngineer(config, tf_roles, playbook_loaded)
-    
-    # --- On-Demand Benchmark Feature Engineering ---
-    benchmark_feature_names = ['relative_strength_vs_spy', 'correlation_with_spy', 'is_spy_bullish']
-    config.selected_features = config.selected_features or []
-
-    needs_benchmark_data = any(feature in config.selected_features for feature in benchmark_feature_names)
-
-    if needs_benchmark_data:
-        logger.info("AI configuration requires benchmark features. Processing S&P 500 (SPY) data...")
-        
-        benchmark_cache_dir = os.path.join(config.BASE_PATH, "data_cache_benchmark")
-        spy_data_handler = DataHandler(cache_dir=benchmark_cache_dir)
-        spy_df = spy_data_handler.get_data("SPY", start_date=full_df.index.min().strftime('%Y-%m-%d'), end_date=full_df.index.max().strftime('%Y-%m-%d'))
-
-        daily_tf_name = tf_roles.get('high')
-        if daily_tf_name and daily_tf_name in data_by_tf and not spy_df.empty:
-            daily_asset_df = data_by_tf[daily_tf_name]
-            daily_df_with_benchmark_features = fe.engineer_daily_benchmark_features(daily_asset_df, spy_df)
-            data_by_tf[daily_tf_name] = daily_df_with_benchmark_features
-            logger.info("  - D1 benchmark features created and will be merged into the base timeframe during the main feature engineering process.")
-            
-            # Since we've modified a higher TF dataframe, we must re-run the full feature engineering
-            logger.info("Re-running feature engineering process to incorporate new benchmark features...")
-            full_df = fe.engineer_features(base_tf_data, data_by_tf)
-            logger.info("Benchmark feature incorporation complete.")
-        else:
-            logger.warning("Could not engineer D1 benchmark features (SPY or Daily asset data missing).")
-    else:
-        logger.info("Benchmark features not required for the selected strategy. Skipping SPY data fetch.")
     
     # --- Phase 5: Walk-Forward Validation Loop ---
     all_available_engineered_features = _get_available_features_from_df(full_df)
@@ -5284,16 +5865,17 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
             logger.warning(f"{cycle_label}: Not enough data. Skipping cycle.")
             continue
 
-        # --- EFFICIENT DYNAMIC LABELING LOGIC ---
-        # 1. Calculate the raw signal pressure series just once.
         raw_signal_pressure = fe._calculate_signal_pressure_series(
             df_train_cycle_raw, config.LOOKAHEAD_CANDLES
         )
         
-        # 2. Analyze the raw signal and ask the AI for optimal quantiles
         long_q, short_q = config.LABEL_LONG_QUANTILE, config.LABEL_SHORT_QUANTILE
         if not raw_signal_pressure.empty:
+            # Get standard descriptive stats
             pressure_summary = raw_signal_pressure.describe().to_dict()
+            # Calculate and add skew and kurtosis to the summary dictionary
+            pressure_summary['skew'] = raw_signal_pressure.skew()
+            pressure_summary['kurtosis'] = raw_signal_pressure.kurt()
             
             if not historical_cycle_results or historical_cycle_results[-1].get("metrics", {}).get("NumTrades", 0) == 0:
                 cycle_prime_directive = "ESTABLISH TRADING BASELINE..."
@@ -5309,7 +5891,6 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
             else:
                 logger.warning("Could not get quantiles from AI. Using hardcoded defaults for this cycle.")
         
-        # 3. Apply the final labels using the determined (or fallback) quantiles
         df_labeled_train_chunk = fe.label_signal_pressure(
             df_train_cycle_raw, raw_signal_pressure, long_q, short_q
         )
@@ -5332,9 +5913,20 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
                 logger.warning(f"{cycle_label}: Training attempt {training_attempts} failed.")
                 if training_attempts < config.MAX_TRAINING_RETRIES_PER_CYCLE:
                     logger.info(f"{cycle_label}: Engaging AI Doctor for mid-cycle intervention...")
-                    # ... (AI intervention logic for failed training) ...
+                    failure_hist_for_ai = [{"attempt": i + 1, "status": "failed"} for i in range(training_attempts)]
+                    pre_analysis_summary = _generate_pre_analysis_summary(df_labeled_train_chunk, current_feature_list_for_training, 'target')
+                    
+                    ai_intervention = api_timer.call(gemini_analyzer.propose_mid_cycle_intervention,
+                                                     failure_hist_for_ai,
+                                                     pre_analysis_summary,
+                                                     cycle_specific_config_obj.model_dump(),
+                                                     playbook_loaded,
+                                                     [])
+                    
+                    if ai_intervention and 'action' in ai_intervention:
+                        logger.info(f"AI Doctor prescribed action: {ai_intervention['action']}. Notes: {ai_intervention.get('analysis_notes')}")
                 else:
-                    logger.error(f"{cycle_label}: All training attempts failed. Skipping cycle.")
+                    logger.error(f"{cycle_label}: All {config.MAX_TRAINING_RETRIES_PER_CYCLE} training attempts failed. Skipping cycle.")
 
         if trained_model_info is None:
             historical_cycle_results.append({"cycle": cycle_label, "status": "Training Failed", "metrics": {}})
@@ -5369,13 +5961,40 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
 
         historical_cycle_results.append({
             "cycle": cycle_label, "status": "Completed" if not breaker_tripped else "Breaker Tripped",
-            "metrics": cycle_performance, "config_at_cycle_start": cycle_specific_config_obj.model_dump(),
+            "metrics": cycle_performance, "config_at_cycle_start": cycle_specific_config_obj.model_dump(mode='json'),
             "selected_features_for_cycle": features_for_backtest 
         })
         logger.info(f"{cycle_label}: Completed. PNL: {cycle_performance.get('total_net_profit', 0):.2f}, Trades: {cycle_performance.get('total_trades', 0)}")
         
-        current_run_operating_state = _update_operating_state(config, historical_cycle_results, current_run_operating_state)
+        # --- NEW AI-DRIVEN LEARNING LOOP ---
+        # 1. Update the operating state based on the most recent cycle's outcome
+        current_run_operating_state = _update_operating_state(config, historical_cycle_results, current_run_operating_state, df_test_cycle)
         config.operating_state = current_run_operating_state
+        
+        # 2. Create a summary of the entire run so far for the AI
+        performance_summary_for_ai = _create_historical_performance_summary_for_ai(historical_cycle_results)
+        
+        # 3. Ask the AI to analyze its history and suggest the next move
+        # (This replaces any previous, simplistic intervention logic)
+        ai_suggestions = api_timer.call(
+            gemini_analyzer.analyze_cycle_and_suggest_changes,
+            historical_summary=performance_summary_for_ai,
+            strategy_details=config.model_dump(mode='json'),
+            cycle_status=historical_cycle_results[-1]['status'],
+            shap_history=model_trainer.shap_summary,
+            available_features=all_available_engineered_features,
+            strategic_directive=f"Current State is '{current_run_operating_state.value}'. Adapt accordingly."
+        )
+
+        # 4. Apply the AI's new suggestions for the next cycle
+        if ai_suggestions:
+            sanitized_suggestions = _sanitize_ai_suggestions(ai_suggestions)
+            logger.info(f"AI Portfolio Manager suggests changes for next cycle: {sanitized_suggestions.get('analysis_notes', 'N/A')}")
+            for key, value in sanitized_suggestions.items():
+                if hasattr(config, key) and key != 'analysis_notes':
+                    setattr(config, key, value)
+                    logger.warning(f"  - AI ADAPTATION: Parameter '{key}' for next cycle changed to: {value}")
+        # --- END OF NEW LEARNING LOOP ---
         
         cycle_duration = time.time() - cycle_start_time
         logger.info(f"{cycle_label} Duration: {cycle_duration:.2f} seconds.")
@@ -5384,10 +6003,30 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
             baseline_failure_cycles = 0
         else:
             baseline_failure_cycles += 1
-
+            
         if baseline_failure_cycles >= 2:
-            logger.warning(f"!! STRATEGIC INTERVENTION TRIGGERED !! {baseline_failure_cycles} consecutive cycles with no trades.")
-            # ... (AI intervention logic for zero trades) ...
+            logger.warning(f"!! STRATEGIC INTERVENTION TRIGGERED !! {baseline_failure_cycles} consecutive cycles with no trades for strategy '{config.strategy_name}'.")
+            failure_hist_for_ai = [res for res in historical_cycle_results if res.get("metrics", {}).get("NumTrades", -1) == 0]
+            
+            logger.info("Engaging AI strategist for a fundamental strategy change for the next cycle...")
+            ai_intervention = api_timer.call(
+                gemini_analyzer.propose_strategic_intervention,
+                failure_history=failure_hist_for_ai, 
+                playbook=playbook_loaded,
+                last_failed_strategy=config.strategy_name, 
+                quarantine_list=[config.strategy_name],
+                framework_history=framework_history_loaded # Pass the full history for inspiration
+            )
+
+            if ai_intervention and 'strategy_name' in ai_intervention:
+                logger.info(f"AI STRATEGIST PRESCRIBED ACTION: Change Strategy. Notes: {ai_intervention.get('analysis_notes')}")
+                for key, value in ai_intervention.items():
+                    if hasattr(config, key):
+                        setattr(config, key, value)
+                        logger.warning(f"AI FIX APPLIED for next cycle: Parameter '{key}' changed to: {value}")
+                baseline_failure_cycles = 0
+            else:
+                logger.error("AI strategist failed to return a valid intervention. The run will continue with the same strategy.")
 
     # --- Phase 9: Post-Walk-Forward Loop ---
     logger.info("Walk-Forward Validation Complete.")
@@ -5413,7 +6052,7 @@ def run_single_instance(fallback_config_dict: Dict, framework_history_loaded: Di
     save_run_to_memory(config, 
                        {"final_metrics": final_metrics, 
                         "cycle_details": historical_cycle_results,
-                        "config_summary": config.model_dump(exclude_defaults=True)},
+                        "config_summary": config.model_dump(mode='json')},
                        framework_history_loaded,
                        raw_regime
                       )
@@ -5446,7 +6085,8 @@ def main():
         "run_timestamp": datetime.now().strftime("%Y%m%d-%H%M%S"),
         "nickname": "bootstrap",
         "REPORT_LABEL": f"AxiomEdge_V{VERSION}_Fallback",
-        "strategy_name": "DefaultStrategy"       
+        "strategy_name": "DefaultStrategy",
+        "FEATURE_SELECTION_METHOD": "pca" # <-- ADD THIS LINE
     }
 
     all_files = [f for f in os.listdir(base_config['BASE_PATH']) if f.endswith(('.csv', '.txt')) and re.match(r'^[A-Z0-9]+_[A-Z0-9]+', f)]
