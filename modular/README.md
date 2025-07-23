@@ -1,6 +1,21 @@
 # AxiomEdge Trading Framework - Modular Architecture
 
+[![GitHub Repository](https://img.shields.io/badge/GitHub-AxiomEdge--PRO-blue?logo=github)](https://github.com/sam-minns/AxiomEdge-PRO)
+[![License](https://img.shields.io/badge/License-GPL%203.0-green.svg)](https://github.com/sam-minns/AxiomEdge-PRO/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
+[![Issues](https://img.shields.io/github/issues/sam-minns/AxiomEdge-PRO)](https://github.com/sam-minns/AxiomEdge-PRO/issues)
+[![Discussions](https://img.shields.io/github/discussions/sam-minns/AxiomEdge-PRO)](https://github.com/sam-minns/AxiomEdge-PRO/discussions)
+
 AxiomEdge is a comprehensive AI-powered trading framework that can be used as individual components or as a complete integrated system. The modular design allows you to use only the parts you need for specific tasks.
+
+## 🔗 **Quick Links**
+
+- 📂 **[Repository](https://github.com/sam-minns/AxiomEdge-PRO)** - Main GitHub repository
+- 📋 **[Issues](https://github.com/sam-minns/AxiomEdge-PRO/issues)** - Bug reports and feature requests
+- 💬 **[Discussions](https://github.com/sam-minns/AxiomEdge-PRO/discussions)** - Community support and questions
+- 📚 **[Wiki](https://github.com/sam-minns/AxiomEdge-PRO/wiki)** - Detailed documentation and guides
+- 🚀 **[Releases](https://github.com/sam-minns/AxiomEdge-PRO/releases)** - Latest versions and changelogs
+- 📁 **[Modular Version](https://github.com/sam-minns/AxiomEdge-PRO/tree/main/modular)** - This modular implementation
 
 ## ⚠️ **IMPORTANT DISCLAIMER**
 
@@ -60,25 +75,25 @@ Unlike traditional backtesting frameworks (like `backtesting.py`, `zipline`, or 
 
 ## 📄 **License & Attribution**
 
-This project is released under a **GPL 3.0 permissive license**. While you are free to use, modify, and distribute this software, it would be nice to be acknowledged for the original code in any further developments or public-facing projects that build upon it. A simple credit or link back to the original repository is greatly appreciated.
+This project is released under the **GNU General Public License v3.0 (GPL-3.0)**. While you are free to use, modify, and distribute this software under the GPL-3.0 terms, it would be nice to be acknowledged for the original code in any further developments or public-facing projects that build upon it. A simple credit or link back to the original repository is greatly appreciated.
 
 ## 🏗️ Architecture Overview
 
 ```
 axiom_edge/
-├── __init__.py                # Main package exports
-├── config.py                  # ✅ Configuration and validation
-├── data_handler.py            # ✅ Data collection and caching
-├── ai_analyzer.py             # ✅ AI analysis with Gemini
-├── feature_engineer.py        # ✅ 200+ Feature engineering (COMPLETE)
-├── model_trainer.py           # ✅ ML model training (COMPLETE)
-├── backtester.py              # ✅ Advanced backtesting engine (COMPLETE)
-├── genetic_programmer.py      # ✅ Genetic algorithm optimization (COMPLETE)
-├── report_generator.py        # ✅ Report generation (COMPLETE)
-├── framework_orchestrator.py  # ✅ Complete framework orchestration (COMPLETE)
-├── telemetry.py               # ✅ Advanced telemetry & monitoring (COMPLETE)
-├── tasks.py                   # ✅ Task-specific interfaces
-└── utils.py                   # ✅ Utility functions
+├── __init__.py               # Main package exports
+├── config.py                 # Configuration and validation
+├── data_handler.py           # Data collection and caching
+├── ai_analyzer.py            # AI analysis with Gemini
+├── feature_engineer.py       # 200+ Feature engineering
+├── model_trainer.py          # ML model training
+├── backtester.py             # Advanced backtesting engine
+├── genetic_programmer.py     # Genetic algorithm optimization
+├── report_generator.py       # Report generation 
+├── framework_orchestrator.py # Complete framework orchestration
+├── telemetry.py              # Advanced telemetry & monitoring
+├── tasks.py                  # Task-specific interfaces
+└── utils.py                  # Utility functions
 ```
 
 ### 🎯 **Implementation Status**
@@ -92,8 +107,8 @@ axiom_edge/
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd AxiomEdge
+git clone https://github.com/sam-minns/AxiomEdge-PRO.git
+cd AxiomEdge-PRO/modular
 
 # Create virtual environment (recommended)
 python -m venv venv
@@ -1159,8 +1174,8 @@ We welcome contributions! Here's how to get started:
 ### Development Setup
 ```bash
 # Fork and clone the repository
-git clone https://github.com/your-username/AxiomEdge.git
-cd AxiomEdge
+git clone https://github.com/sam-minns/AxiomEdge-PRO.git
+cd AxiomEdge-PRO/modular
 
 # Create development environment
 python -m venv venv
@@ -1194,6 +1209,35 @@ mypy axiom_edge/
 - **📚 Documentation**: Additional tutorials, examples, and guides
 - **🧪 Testing**: Extended unit tests, integration tests, performance tests
 - **🌍 Internationalization**: Multi-language support and global markets
+
+### Reporting Issues & Getting Help
+
+#### 🐛 **Bug Reports**
+[Create a bug report](https://github.com/sam-minns/AxiomEdge-PRO/issues/new?template=bug_report.md) with:
+- Clear description of the issue
+- Steps to reproduce
+- Expected vs actual behavior
+- System information and logs
+
+#### 💡 **Feature Requests**
+[Request a new feature](https://github.com/sam-minns/AxiomEdge-PRO/issues/new?template=feature_request.md) with:
+- Detailed use case description
+- Expected functionality
+- Potential implementation approach
+- Benefits to the community
+
+#### 📚 **Documentation Issues**
+[Report documentation problems](https://github.com/sam-minns/AxiomEdge-PRO/issues/new?template=documentation.md) for:
+- Unclear or missing information
+- Outdated examples or instructions
+- Broken links or formatting issues
+- Suggestions for improvement
+
+#### 💬 **Community Support**
+- **Discussions**: [GitHub Discussions](https://github.com/sam-minns/AxiomEdge-PRO/discussions) for questions and community support
+- **Wiki**: [Project Wiki](https://github.com/sam-minns/AxiomEdge-PRO/wiki) for detailed guides and tutorials
+- **Issues**: [Browse existing issues](https://github.com/sam-minns/AxiomEdge-PRO/issues) to see if your question has been answered
+- **Releases**: [Latest releases](https://github.com/sam-minns/AxiomEdge-PRO/releases) for updates and changelogs
 
 ## 📄 License & Legal
 
@@ -1247,4 +1291,31 @@ While you are free to use, modify, and distribute this software under the GPL-3.
 
 ---
 
+## 📞 **Support & Community**
+
+### 🔗 **Repository Links**
+- **Main Repository**: [sam-minns/AxiomEdge-PRO](https://github.com/sam-minns/AxiomEdge-PRO)
+- **Modular Version**: [modular/](https://github.com/sam-minns/AxiomEdge-PRO/tree/main/modular)
+- **Issues & Bugs**: [Report Issues](https://github.com/sam-minns/AxiomEdge-PRO/issues)
+- **Feature Requests**: [Request Features](https://github.com/sam-minns/AxiomEdge-PRO/issues/new?template=feature_request.md)
+- **Discussions**: [Community Discussions](https://github.com/sam-minns/AxiomEdge-PRO/discussions)
+
+### 📈 **Project Status**
+- **Version**: 2.1.1 (Modular)
+- **Status**: Production Ready ✅
+- **License**: GPL 3.0
+- **Python**: 3.8+ Required
+- **Last Updated**: 2024
+
+### 🤝 **Get Involved**
+- ⭐ **Star the repository** if you find it useful
+- 🍴 **Fork and contribute** to help improve the framework
+- 🐛 **Report bugs** to help us maintain quality
+- 💡 **Suggest features** to guide development
+- 📖 **Improve documentation** to help other users
+
+---
+
 **Built with ❤️ for the quantitative finance and machine learning community**
+
+*AxiomEdge Professional Trading Framework - Empowering traders with AI-driven insights and scientific rigor.*
