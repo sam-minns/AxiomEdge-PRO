@@ -66,19 +66,19 @@ This project is released under a **GPL 3.0 permissive license**. While you are f
 
 ```
 axiom_edge/
-├── __init__.py              # Main package exports
-├── config.py                # ✅ Configuration and validation
-├── data_handler.py          # ✅ Data collection and caching
-├── ai_analyzer.py           # ✅ AI analysis with Gemini
-├── feature_engineer.py      # ✅ 200+ Feature engineering (COMPLETE)
-├── model_trainer.py         # ✅ ML model training (COMPLETE)
-├── backtester.py           # ✅ Advanced backtesting engine (COMPLETE)
-├── genetic_programmer.py   # ✅ Genetic algorithm optimization (COMPLETE)
-├── report_generator.py     # ✅ Report generation (COMPLETE)
-├── framework_orchestrator.py # ✅ Complete framework orchestration (COMPLETE)
-├── telemetry.py            # ✅ Advanced telemetry & monitoring (COMPLETE)
-├── tasks.py                # ✅ Task-specific interfaces
-└── utils.py                # ✅ Utility functions
+├── __init__.py                # Main package exports
+├── config.py                  # ✅ Configuration and validation
+├── data_handler.py            # ✅ Data collection and caching
+├── ai_analyzer.py             # ✅ AI analysis with Gemini
+├── feature_engineer.py        # ✅ 200+ Feature engineering (COMPLETE)
+├── model_trainer.py           # ✅ ML model training (COMPLETE)
+├── backtester.py              # ✅ Advanced backtesting engine (COMPLETE)
+├── genetic_programmer.py      # ✅ Genetic algorithm optimization (COMPLETE)
+├── report_generator.py        # ✅ Report generation (COMPLETE)
+├── framework_orchestrator.py  # ✅ Complete framework orchestration (COMPLETE)
+├── telemetry.py               # ✅ Advanced telemetry & monitoring (COMPLETE)
+├── tasks.py                   # ✅ Task-specific interfaces
+└── utils.py                   # ✅ Utility functions
 ```
 
 ### 🎯 **Implementation Status**
