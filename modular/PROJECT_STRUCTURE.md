@@ -5,31 +5,31 @@
 ```
 AxiomEdge/
 ├── axiom_edge/                    # Main package directory
-│   ├── __init__.py               # Package initialization and exports
-│   ├── config.py                 # Configuration models and validation
-│   ├── data_handler.py           # Data collection and caching
-│   ├── ai_analyzer.py            # AI analysis with Gemini API
-│   ├── feature_engineer.py       # ✅ Feature engineering (COMPLETE)
-│   ├── model_trainer.py          # ✅ ML model training (COMPLETE)
-│   ├── backtester.py            # ✅ Strategy backtesting (COMPLETE)
-│   ├── genetic_programmer.py    # ✅ Genetic algorithm optimization (COMPLETE)
-│   ├── report_generator.py      # ✅ Report generation (COMPLETE)
-│   ├── framework_orchestrator.py # ✅ Complete framework orchestration (COMPLETE)
-│   ├── telemetry.py             # ✅ Advanced telemetry and monitoring (COMPLETE)
-│   ├── tasks.py                 # Task-specific interfaces
-│   └── utils.py                 # Utility functions
+│   ├── __init__.py                # Package initialization and exports
+│   ├── config.py                  # Configuration models and validation
+│   ├── data_handler.py            # Data collection and caching
+│   ├── ai_analyzer.py             # AI analysis with Gemini API
+│   ├── feature_engineer.py        # Feature engineering
+│   ├── model_trainer.py           # ML model training
+│   ├── backtester.py              # Strategy backtesting
+│   ├── genetic_programmer.py      # Genetic algorithm optimization
+│   ├── report_generator.py        # Report generation
+│   ├── framework_orchestrator.py  # Complete framework orchestration
+│   ├── telemetry.py               # Advanced telemetry and monitoring
+│   ├── tasks.py                   # Task-specific interfaces
+│   └── utils.py                   # Utility functions
 │
 ├── examples/                     # Usage examples
-│   ├── basic_usage.py           # Basic usage examples
-│   ├── advanced_strategies.py   # Advanced strategy examples
-│   ├── custom_features.py       # Custom feature engineering
+│   ├── basic_usage.py            # Basic usage examples
+│   ├── advanced_strategies.py    # Advanced strategy examples
+│   ├── custom_features.py        # Custom feature engineering
 │   └── portfolio_optimization.py # Portfolio-level examples
 │
 ├── configs/                      # Configuration files
-│   ├── default_config.json      # Default configuration
-│   ├── conservative_config.json # Conservative trading config
-│   ├── aggressive_config.json   # Aggressive trading config
-│   └── research_config.json     # Research/experimental config
+│   ├── default_config.json       # Default configuration
+│   ├── conservative_config.json  # Conservative trading config
+│   ├── aggressive_config.json    # Aggressive trading config
+│   └── research_config.json      # Research/experimental config
 │
 ├── docs/                        # Documentation
 │   ├── api/                     # API documentation
@@ -64,7 +64,8 @@ AxiomEdge/
 ├── README.md                    # Main documentation
 ├── PROJECT_STRUCTURE.md         # This file
 ├── LICENSE                      # License file
-└── .gitignore                   # Git ignore rules
+├── .gitignore                   # Git ignore rules
+└── AxiomEdge_PRO_V211_NEW.py   # Original monolithic file (for reference)
 ```
 
 ## 🏗️ Modular Architecture
@@ -211,9 +212,9 @@ python main.py --task complete --data-files "data/*.csv"
 - [ ] Advanced visualization
 - [ ] Cloud deployment support
 
-## 🎊 **MODULARIZATION COMPLETE!**
+## 🎊 **MODULARIZATION**
 
-**All core components have been successfully extracted from the monolithic file and fully implemented:**
+**All core components fully implemented:**
 
 ### ✅ **Completed Components:**
 - **FeatureEngineer**: 200+ features with multi-timeframe analysis
@@ -243,8 +244,8 @@ python main.py --task complete --data-files "data/*.csv"
 ### Development Installation
 ```bash
 # Clone repository
-git clone <repository-url>
-cd AxiomEdge
+git clone https://github.com/sam-minns/AxiomEdge-PRO.git
+cd AxiomEdge-PRO/modular
 
 # Create virtual environment
 python -m venv venv
@@ -320,13 +321,26 @@ python main.py --task data_collection --symbols AAPL --start 2023-01-01 --end 20
 5. Update documentation
 
 ### Pull Request Process
-1. Fork the repository
+1. Fork the [repository](https://github.com/sam-minns/AxiomEdge-PRO)
 2. Create a feature branch
 3. Make your changes
 4. Add tests
 5. Update documentation
-6. Submit pull request
+6. Submit pull request to the main repository
+
+### Getting Help
+- **Issues**: [Report bugs or request features](https://github.com/sam-minns/AxiomEdge-PRO/issues)
+- **Discussions**: [Community discussions](https://github.com/sam-minns/AxiomEdge-PRO/discussions)
+- **Wiki**: [Project documentation](https://github.com/sam-minns/AxiomEdge-PRO/wiki)
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](https://github.com/sam-minns/AxiomEdge-PRO/blob/main/LICENSE) file for details.
+
+### License Summary
+- **License**: GNU GPL 3.0
+- **Permissions**: Commercial use, modification, distribution, patent use, private use
+- **Conditions**: License and copyright notice, state changes, disclose source, same license
+- **Limitations**: Liability, warranty
+
+The GPL 3.0 license ensures that AxiomEdge remains open source and that any derivatives or modifications are also made available under the same terms, fostering community collaboration and transparency.
