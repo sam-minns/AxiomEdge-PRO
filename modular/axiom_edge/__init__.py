@@ -12,9 +12,6 @@ from .ai_analyzer import GeminiAnalyzer, APITimer
 # Feature engineering is now fully modularized
 from .feature_engineer import FeatureEngineer
 
-# Note: These modules will be created as stubs that import from the main file
-# until the full modularization is complete
-
 # Model training is now fully modularized
 from .model_trainer import ModelTrainer
 
