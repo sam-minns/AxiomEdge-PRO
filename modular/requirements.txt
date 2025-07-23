@@ -1,0 +1,86 @@
+# AxiomEdge Trading Framework - Dependencies
+
+# Core Data Science Libraries
+pandas>=1.5.0
+numpy>=1.21.0
+scipy>=1.9.0
+scikit-learn>=1.1.0
+
+# Machine Learning & Deep Learning
+optuna>=3.0.0
+xgboost>=1.6.0
+lightgbm>=3.3.0
+catboost>=1.1.0
+torch>=1.12.0
+transformers>=4.20.0
+
+# Technical Analysis
+ta-lib>=0.4.25
+talib-binary>=0.4.19  # Alternative for easier installation
+
+# Time Series Analysis
+statsmodels>=0.13.0
+arch>=5.3.0
+PyWavelets>=1.3.0
+
+# Feature Engineering & Selection
+tsfresh>=0.19.0
+boruta>=0.3.0
+shap>=0.41.0
+
+# Data Sources & APIs
+yfinance>=0.1.87
+alpha-vantage>=2.3.1
+polygon-api-client>=1.9.0
+requests>=2.28.0
+
+# Database & Storage
+sqlalchemy>=1.4.0
+psycopg2-binary>=2.9.0
+pymongo>=4.2.0
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.11.0
+plotly>=5.10.0
+
+# Configuration & Validation
+pydantic>=1.10.0
+python-dotenv>=0.20.0
+PyYAML>=6.0
+
+# Utilities
+tqdm>=4.64.0
+joblib>=1.1.0
+psutil>=5.9.0
+pathlib>=1.0.1
+
+# Development & Testing
+pytest>=7.1.0
+pytest-cov>=3.0.0
+black>=22.6.0
+flake8>=5.0.0
+mypy>=0.971
+
+# Documentation
+sphinx>=5.1.0
+sphinx-rtd-theme>=1.0.0
+
+# Optional: GPU Support (uncomment if needed)
+# torch-audio>=0.12.0
+# torch-vision>=0.13.0
+
+# Optional: Advanced ML Libraries (uncomment if needed)
+# tensorflow>=2.9.0
+# keras>=2.9.0
+# prophet>=1.1.0
+
+# Optional: Alternative Data Sources (uncomment if needed)
+# quandl>=3.7.0
+# fredapi>=0.5.0
+# bloomberg-api>=0.1.0
+
+# Optional: Broker APIs (uncomment if needed)
+# oandapyV20>=0.6.3
+# ib-insync>=0.9.70
+# ccxt>=2.0.0  # For cryptocurrency exchanges
