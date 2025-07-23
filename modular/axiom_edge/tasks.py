@@ -290,20 +290,32 @@ class FeatureEngineeringTask(BaseTask):
             DataFrame with engineered features
         """
         from .feature_engineer import FeatureEngineer
-        
+
         self.logger.info("Starting feature engineering")
-        
+
         # Create feature engineer
         timeframe_roles = {'base': '1D'}  # Default timeframe role
         playbook = {}  # Default empty playbook
-        
+
         feature_engineer = FeatureEngineer(self.config, timeframe_roles, playbook)
-        
-        # Engineer features
-        data_by_tf = {'1D': data}  # Wrap data in expected format
-        macro_data = None  # No macro data by default
-        
-        engineered_data = feature_engineer.engineer_features(data, data_by_tf, macro_data)
+
+        # Prepare data in the expected format
+        if isinstance(data, pd.DataFrame):
+            # Ensure we have a proper datetime index
+            if 'timestamp' in data.columns and not isinstance(data.index, pd.DatetimeIndex):
+                data = data.set_index('timestamp')
+            elif not isinstance(data.index, pd.DatetimeIndex):
+                # Create a simple datetime index if none exists
+                data.index = pd.date_range(start='2023-01-01', periods=len(data), freq='D')
+
+            # Engineer features
+            data_by_tf = {'1D': data}  # Wrap data in expected format
+            macro_data = None  # No macro data by default
+
+            engineered_data = feature_engineer.engineer_features(data, data_by_tf, macro_data)
+        else:
+            self.logger.error("Data must be a pandas DataFrame")
+            return pd.DataFrame()
         
         self.logger.info(f"Feature engineering completed. Generated {len(engineered_data.columns)} features")
         return engineered_data
@@ -372,20 +384,46 @@ class ModelTrainingTask(BaseTask):
         """
         from .model_trainer import ModelTrainer
         from .ai_analyzer import GeminiAnalyzer
-        
+
         self.logger.info(f"Starting model training with {model_type}")
-        
-        # Create model trainer
-        gemini_analyzer = GeminiAnalyzer()
+
+        # Create AI analyzer and model trainer
+        try:
+            gemini_analyzer = GeminiAnalyzer()
+        except Exception as e:
+            self.logger.warning(f"Could not initialize Gemini analyzer: {e}. Using basic trainer.")
+            # Create a minimal analyzer for basic functionality
+            class BasicAnalyzer:
+                def __init__(self):
+                    self.api_key_valid = False
+            gemini_analyzer = BasicAnalyzer()
+
         trainer = ModelTrainer(self.config, gemini_analyzer)
-        
+
         # Prepare data
-        combined_data = features.copy()
-        combined_data['target'] = target
-        
-        # Train model
-        model_results = trainer.train_and_validate_model(combined_data)
-        
+        if isinstance(features, pd.DataFrame) and isinstance(target, (pd.Series, np.ndarray, list)):
+            # Combine features and target
+            combined_data = features.copy()
+
+            # Handle different target formats
+            if isinstance(target, (list, np.ndarray)):
+                target = pd.Series(target, index=features.index)
+
+            # Add target with appropriate name
+            if hasattr(target, 'name') and target.name:
+                target_name = target.name
+            else:
+                target_name = 'target_signal_pressure_class'
+
+            combined_data[target_name] = target
+
+            # Train model
+            model_results = trainer.train_and_validate_model(combined_data)
+
+        else:
+            self.logger.error("Invalid data format. Features must be DataFrame, target must be Series/array")
+            return {"error": "Invalid data format"}
+
         self.logger.info("Model training completed")
         return model_results
 
