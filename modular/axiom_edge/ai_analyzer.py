@@ -2383,3 +2383,84 @@ def _create_optuna_summary_for_ai(study, top_n: int = 3) -> str:
             summary += f"  Trial {trial.number}: No values available\n"
 
     return summary
+
+
+# Add financial data search methods to GeminiAnalyzer class
+def search_financial_data(self, query: str, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
+    """Use Gemini AI with grounded search to find financial data"""
+    if not self.api_key_valid:
+        return {"error": "Gemini API key not configured"}
+
+    try:
+        # Enhanced prompt for financial data search
+        search_prompt = f"""
+        Search for historical financial data for {symbol} from {start_date} to {end_date}.
+
+        Query: {query}
+
+        Please find reliable sources for:
+        - OHLCV (Open, High, Low, Close, Volume) data
+        - Historical price information
+        - Trading volume data
+
+        Focus on free, publicly available sources. If you find specific data points,
+        format them as JSON with fields: date, open, high, low, close, volume.
+
+        Provide both the data (if found) and source recommendations.
+        """
+
+        response = self._make_api_call(search_prompt, use_search=True)
+
+        if response and "error" not in response:
+            return {
+                "success": True,
+                "data": response.get("analysis", ""),
+                "sources": response.get("sources", []),
+                "recommendations": response.get("recommendations", [])
+            }
+        else:
+            return {"error": "Search failed", "data": None}
+
+    except Exception as e:
+        logger.error(f"Error in financial data search: {e}")
+        return {"error": str(e), "data": None}
+
+def get_scraping_guidance(self, symbol: str, query: str) -> Dict[str, Any]:
+    """Get Gemini guidance for web scraping financial data"""
+    if not self.api_key_valid:
+        return {"error": "Gemini API key not configured"}
+
+    try:
+        guidance_prompt = f"""
+        Provide guidance for finding free financial data sources for {symbol}.
+
+        Query: {query}
+
+        Please suggest:
+        1. Reliable free financial data websites
+        2. APIs that don't require paid subscriptions
+        3. Data formats and structures to expect
+        4. Best practices for respectful data collection
+
+        Focus on legitimate, publicly available sources only.
+        """
+
+        response = self._make_api_call(guidance_prompt, use_search=True)
+
+        if response and "error" not in response:
+            return {
+                "success": True,
+                "guidance": response.get("analysis", ""),
+                "sources": response.get("sources", []),
+                "recommendations": response.get("recommendations", [])
+            }
+        else:
+            return {"error": "Guidance request failed"}
+
+    except Exception as e:
+        logger.error(f"Error getting scraping guidance: {e}")
+        return {"error": str(e)}
+
+# Add these methods to the GeminiAnalyzer class
+GeminiAnalyzer.search_financial_data = search_financial_data
+GeminiAnalyzer.get_scraping_guidance = get_scraping_guidance

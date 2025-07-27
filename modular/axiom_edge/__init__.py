@@ -31,6 +31,7 @@ from .config import (
     create_default_config,
     validate_config,
     get_config_summary,
+    validate_framework_configuration,
     generate_dynamic_config
 )
 

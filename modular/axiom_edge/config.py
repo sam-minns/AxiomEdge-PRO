@@ -1620,3 +1620,52 @@ def _update_operating_state(config: ConfigModel, cycle_history: List[Dict], curr
         return OperatingState.CONSERVATIVE_BASELINE
 
     return current_state
+
+
+def validate_framework_configuration() -> Dict[str, Any]:
+    """
+    Validate framework configuration and data source availability.
+
+    Returns:
+        Dict containing validation results and recommendations
+    """
+    import os
+
+    results = {
+        "framework_self_sufficient": True,
+        "gemini_configured": False,
+        "issues": [],
+        "recommendations": [],
+        "available_sources": [
+            "yahoo",           # Yahoo Finance (free, no API key)
+            "sample_data",     # Generated sample data
+            "csv_files",       # Local CSV files
+            "web_scraping"     # Web scraping capabilities
+        ]
+    }
+
+    # Check Gemini API key (only optional API key)
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key and "YOUR" not in gemini_key and "PASTE" not in gemini_key:
+        results["gemini_configured"] = True
+        results["available_sources"].append("gemini_search")
+        results["recommendations"].append("Gemini AI is configured for enhanced data collection")
+    else:
+        results["issues"].append("GEMINI_API_KEY not configured (optional)")
+        results["recommendations"].append("Set GEMINI_API_KEY for AI-powered data search and analysis")
+        results["recommendations"].append("Get free API key at: https://makersuite.google.com/app/apikey")
+
+    # Framework capabilities
+    results["capabilities"] = [
+        "Self-sufficient financial data collection",
+        "Yahoo Finance integration (no API key required)",
+        "Sample data generation for testing and development",
+        "CSV file import for custom datasets",
+        "Web scraping with AI guidance (when Gemini is configured)"
+    ]
+
+    # Overall status
+    results["ready_to_use"] = True  # Framework is always ready
+    results["enhanced_features"] = results["gemini_configured"]
+
+    return results

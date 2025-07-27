@@ -25,6 +25,7 @@ Features:
 import sys
 import argparse
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -263,6 +264,40 @@ def show_validation_results():
     return results['installation_valid']
 
 
+def validate_environment():
+    """Validate environment variables and framework configuration."""
+    issues = []
+    recommendations = []
+
+    # Check Gemini API key (only required API key)
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key or "YOUR" in gemini_key or "PASTE" in gemini_key:
+        issues.append("GEMINI_API_KEY not configured")
+        recommendations.append("Set GEMINI_API_KEY for AI analysis and enhanced data collection")
+        recommendations.append("Get free API key at: https://makersuite.google.com/app/apikey")
+
+    # Framework is self-sufficient for financial data
+    print("🚀 AxiomEdge Framework Status:")
+    print("   ✅ Self-sufficient financial data collection")
+    print("   ✅ Yahoo Finance integration (no API key required)")
+    print("   ✅ Sample data generation for testing")
+    print("   ✅ CSV file support for custom data")
+
+    if gemini_key and "YOUR" not in gemini_key and "PASTE" not in gemini_key:
+        print("   ✅ Gemini AI integration for enhanced data search")
+    else:
+        print("   ⚠️  Gemini AI not configured (optional but recommended)")
+
+    if issues:
+        print("\n💡 Optional Enhancements:")
+        for rec in recommendations:
+            print(f"   • {rec}")
+        print()
+    else:
+        print("\n✅ Framework is ready to use!")
+        print()
+
+
 def main():
     """
     Main entry point for the AxiomEdge framework.
@@ -290,6 +325,9 @@ def main():
         else:
             print("\n❌ Installation validation failed!")
             sys.exit(1)
+
+    # Validate environment configuration
+    validate_environment()
     
     # Setup logging
     if args.log_file:

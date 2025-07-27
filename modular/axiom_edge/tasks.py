@@ -204,13 +204,21 @@ class DataCollectionTask(BaseTask):
         data = task.collect_data(["AAPL", "GOOGL"], "2023-01-01", "2024-01-01")
     """
     
-    def __init__(self, config: Optional[ConfigModel] = None, 
-                 cache_dir: str = "data_cache", api_key: Optional[str] = None):
+    def __init__(self, config: Optional[ConfigModel] = None,
+                 cache_dir: str = "data_cache", gemini_analyzer=None):
         super().__init__(config)
-        self.data_handler = DataHandler(cache_dir=cache_dir, api_key=api_key)
+        # Initialize Gemini analyzer if not provided
+        if gemini_analyzer is None:
+            try:
+                from .ai_analyzer import GeminiAnalyzer
+                gemini_analyzer = GeminiAnalyzer()
+            except:
+                gemini_analyzer = None
+
+        self.data_handler = DataHandler(cache_dir=cache_dir, gemini_analyzer=gemini_analyzer)
     
     def collect_data(self, symbols: List[str], start_date: str, end_date: str,
-                    timeframe: str = "1D", source: str = "alpha_vantage") -> Dict[str, pd.DataFrame]:
+                    timeframe: str = "1D", source: str = "yahoo") -> Dict[str, pd.DataFrame]:
         """
         Collect historical data for multiple symbols
         
@@ -265,10 +273,17 @@ class BrokerInfoTask(BaseTask):
         spreads = task.collect_spreads(["EURUSD", "GBPUSD"], "oanda")
     """
     
-    def __init__(self, config: Optional[ConfigModel] = None, api_key: Optional[str] = None):
+    def __init__(self, config: Optional[ConfigModel] = None, gemini_analyzer=None):
         super().__init__(config)
-        self.data_handler = DataHandler(api_key=api_key)
-        self.ai_analyzer = GeminiAnalyzer()
+        # Initialize Gemini analyzer if not provided
+        if gemini_analyzer is None:
+            try:
+                gemini_analyzer = GeminiAnalyzer()
+            except:
+                gemini_analyzer = None
+
+        self.data_handler = DataHandler(gemini_analyzer=gemini_analyzer)
+        self.ai_analyzer = gemini_analyzer
     
     def collect_spreads(self, symbols: List[str], broker: str = "oanda") -> Dict[str, float]:
         """
