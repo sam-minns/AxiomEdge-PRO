@@ -19,12 +19,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from axiom_edge import (
     DataCollectionTask,
-    BrokerInfoTask,
     BacktestTask,
     FeatureEngineeringTask,
     ModelTrainingTask,
     CompleteFrameworkTask,
-    ConfigModel,
     create_default_config
 )
 
@@ -57,30 +55,49 @@ def example_1_data_collection():
     cache_info = task.get_cache_info()
     print(f"Cache info: {cache_info}")
 
-def example_2_broker_analysis():
-    """Example 2: Analyze broker information"""
+def example_2_data_validation():
+    """Example 2: Data validation and quality checks"""
     print("\n" + "=" * 60)
-    print("EXAMPLE 2: BROKER ANALYSIS")
+    print("EXAMPLE 2: DATA VALIDATION")
     print("=" * 60)
-    
-    # Create broker info task
-    task = BrokerInfoTask()
-    
-    # Collect spreads for forex pairs
-    symbols = ["EURUSD", "GBPUSD", "USDJPY"]
-    broker = "oanda"
-    
-    print(f"Collecting spreads for {symbols} from {broker}")
-    
-    # Note: This will use mock data since we don't have real broker APIs
-    spreads = task.collect_spreads(symbols, broker)
-    
-    if spreads:
-        print("Current spreads:")
-        for symbol, spread in spreads.items():
-            print(f"  {symbol}: {spread:.5f}")
-    else:
-        print("No spread data available (broker API not configured)")
+
+    # Create sample data with some quality issues
+    dates = pd.date_range(start="2023-01-01", end="2023-03-31", freq="D")
+    np.random.seed(42)
+
+    # Generate data with intentional issues
+    price = 100
+    prices = []
+    for _ in range(len(dates)):
+        price *= (1 + np.random.normal(0, 0.02))
+        prices.append(price)
+
+    sample_data = pd.DataFrame({
+        'timestamp': dates,
+        'Open': prices,
+        'High': [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
+        'Low': [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
+        'Close': prices,
+        'Volume': np.random.randint(1000000, 10000000, len(dates))
+    })
+
+    # Introduce some data quality issues
+    sample_data.loc[10:15, 'Close'] = np.nan  # Missing data
+    sample_data.loc[20, 'High'] = sample_data.loc[20, 'Low'] - 5  # Invalid high < low
+
+    print(f"Sample data with quality issues: {len(sample_data)} records")
+
+    # Validate data quality
+    from axiom_edge.utils import validate_data_quality
+    required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+
+    try:
+        quality_report = validate_data_quality(sample_data, required_columns)
+        print(f"Data quality: {quality_report['overall_quality']}")
+        print(f"Missing data: {quality_report['missing_data_pct']:.1%}")
+        print(f"Issues found: {len(quality_report['issues'])}")
+    except Exception as e:
+        print(f"Data validation error: {e}")
 
 def example_3_feature_engineering():
     """Example 3: Engineer features from price data"""
@@ -263,7 +280,7 @@ def main():
     
     try:
         example_1_data_collection()
-        example_2_broker_analysis()
+        example_2_data_validation()
         example_3_feature_engineering()
         example_4_backtesting()
         example_5_model_training()
