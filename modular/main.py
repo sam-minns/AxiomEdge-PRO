@@ -38,7 +38,7 @@ from typing import List, Dict, Any
 # Import AxiomEdge modules
 from axiom_edge import (
     DataCollectionTask,
-    BrokerInfoTask, 
+    BrokerInfoTask,
     BacktestTask,
     FeatureEngineeringTask,
     ModelTrainingTask,
@@ -47,6 +47,8 @@ from axiom_edge import (
     create_default_config,
     setup_logging
 )
+from axiom_edge.config import load_config_from_file
+from axiom_edge.utils import save_results
 
 def parse_arguments():
     """Parse command line arguments"""
@@ -90,7 +92,6 @@ def parse_arguments():
 def load_config(config_path: str = None) -> ConfigModel:
     """Load configuration from file or create default"""
     if config_path and Path(config_path).exists():
-        from axiom_edge.config import load_config_from_file
         return load_config_from_file(config_path)
     else:
         return create_default_config("./")
@@ -196,7 +197,6 @@ def run_backtest_task(args, config: ConfigModel):
         print(f"📊 Results: {results}")
         
         # Save results
-        from axiom_edge.utils import save_results
         output_file = Path(args.output_dir) / "backtest_results.json"
         save_results(results, str(output_file))
         print(f"💾 Results saved to {output_file}")
@@ -269,7 +269,6 @@ def run_model_training_task(args, config: ConfigModel):
         print(f"📊 Results: {results}")
         
         # Save results
-        from axiom_edge.utils import save_results
         output_file = Path(args.output_dir) / "model_results.json"
         save_results(results, str(output_file))
         print(f"💾 Results saved to {output_file}")
@@ -302,7 +301,6 @@ def run_complete_framework_task(args, config: ConfigModel):
         print(f"📊 Results summary: {len(results)} components completed")
         
         # Save results
-        from axiom_edge.utils import save_results
         output_file = Path(args.output_dir) / "complete_framework_results.json"
         save_results(results, str(output_file))
         print(f"💾 Results saved to {output_file}")
@@ -314,7 +312,6 @@ def main():
     args = parse_arguments()
     
     # Setup logging
-    from axiom_edge.utils import setup_logging
     setup_logging(args.log_level, args.log_file)
     
     # Create output directory

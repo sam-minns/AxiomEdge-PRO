@@ -1106,8 +1106,14 @@ btc_data = handler.get_crypto_data("BTC-USD", "2023-01-01", "2024-01-01")
 
 ### Run Comprehensive Examples
 ```bash
-# Complete framework demonstration
-python examples/complete_framework_demo.py
+# Quick start for beginners
+python examples/quick_start.py
+
+# Basic usage examples
+python examples/basic_usage.py
+
+# Data collection demonstration
+python examples/data_collection_demo.py
 
 # Feature engineering demonstration
 python examples/feature_engineering_demo.py
@@ -1115,11 +1121,20 @@ python examples/feature_engineering_demo.py
 # Model training demonstration
 python examples/model_training_demo.py
 
+# Backtesting demonstration
+python examples/backtesting_demo.py
+
 # Genetic programming demonstration
 python examples/genetic_programming_demo.py
 
 # Report generation demonstration
 python examples/report_generation_demo.py
+
+# Complete framework demonstration
+python examples/complete_framework_demo.py
+
+# Complete AxiomEdge showcase
+python examples/complete_axiom_edge_demo.py
 
 # Command line interface
 python main.py --task complete --data-files "data/*.csv"
@@ -1156,10 +1171,16 @@ print(f"Processing rate: {len(large_data) / (end_time - start_time):.0f} samples
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
 
 ### Examples & Tutorials
-- [Basic Usage Examples](examples/basic_usage.py) - Getting started
+- [Quick Start Guide](examples/quick_start.py) - ⭐ **NEW**: Beginner-friendly introduction
+- [Basic Usage Examples](examples/basic_usage.py) - Getting started with core components
+- [Data Collection Demo](examples/data_collection_demo.py) - ⭐ **NEW**: Data management capabilities
 - [Feature Engineering Demo](examples/feature_engineering_demo.py) - ⭐ **NEW**: 200+ features demo
-- [Advanced Strategies](examples/advanced_strategies.py) - Complex strategy examples
-- [Multi-Asset Portfolio](examples/portfolio_optimization.py) - Portfolio-level analysis
+- [Model Training Demo](examples/model_training_demo.py) - Advanced ML capabilities
+- [Backtesting Demo](examples/backtesting_demo.py) - ⭐ **NEW**: Comprehensive backtesting
+- [Genetic Programming Demo](examples/genetic_programming_demo.py) - Strategy evolution
+- [Report Generation Demo](examples/report_generation_demo.py) - Professional reporting
+- [Complete Framework Demo](examples/complete_framework_demo.py) - Production workflow
+- [Complete AxiomEdge Demo](examples/complete_axiom_edge_demo.py) - Unique capabilities showcase
 
 ### Research Papers & References
 - Technical Analysis Indicators: Comprehensive implementation

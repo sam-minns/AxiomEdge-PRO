@@ -20,10 +20,17 @@ AxiomEdge/
 │   └── utils.py                   # Utility functions
 │
 ├── examples/                     # Usage examples
+│   ├── README.md                 # Comprehensive examples documentation
+│   ├── quick_start.py            # Beginner-friendly introduction
 │   ├── basic_usage.py            # Basic usage examples
-│   ├── advanced_strategies.py    # Advanced strategy examples
-│   ├── custom_features.py        # Custom feature engineering
-│   └── portfolio_optimization.py # Portfolio-level examples
+│   ├── data_collection_demo.py   # Data management capabilities
+│   ├── feature_engineering_demo.py # 200+ features demonstration
+│   ├── model_training_demo.py    # Advanced ML capabilities
+│   ├── backtesting_demo.py       # Comprehensive backtesting
+│   ├── genetic_programming_demo.py # Strategy evolution
+│   ├── report_generation_demo.py # Professional reporting
+│   ├── complete_framework_demo.py # Production workflow
+│   └── complete_axiom_edge_demo.py # Unique capabilities showcase
 │
 ├── configs/                      # Configuration files
 │   ├── default_config.json       # Default configuration
@@ -60,9 +67,13 @@ AxiomEdge/
 │
 ├── main.py                      # Main entry point script
 ├── setup.py                     # Package setup configuration
+├── pyproject.toml               # Modern packaging configuration
 ├── requirements.txt             # Python dependencies
+├── MANIFEST.in                  # Package manifest file
 ├── README.md                    # Main documentation
 ├── PROJECT_STRUCTURE.md         # This file
+├── integration_test_summary.md  # Integration test results
+├── validate_framework.py        # Framework validation script
 ├── LICENSE                      # License file
 └── .gitignore                   # Git ignore rules
 ```
@@ -291,10 +302,22 @@ pytest --cov=axiom_edge
 
 ### Example Usage
 ```bash
+# Quick start for beginners
+python examples/quick_start.py
+
 # Run basic examples
 python examples/basic_usage.py
 
-# Run specific example
+# Data collection demonstration
+python examples/data_collection_demo.py
+
+# Feature engineering demonstration
+python examples/feature_engineering_demo.py
+
+# Complete framework demonstration
+python examples/complete_framework_demo.py
+
+# Run specific task via CLI
 python main.py --task data_collection --symbols AAPL --start 2023-01-01 --end 2024-01-01
 ```
 

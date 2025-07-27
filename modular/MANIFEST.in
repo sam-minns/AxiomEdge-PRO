@@ -1,0 +1,101 @@
+# =============================================================================
+# AXIOM EDGE - MANIFEST FILE
+# =============================================================================
+# This file specifies which files to include in the source distribution
+
+# Include essential documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+include requirements.txt
+include requirements-dev.txt
+
+# Include configuration files
+include *.cfg
+include *.ini
+include *.toml
+include pyproject.toml
+
+# Include package data
+recursive-include axiom_edge *.py
+recursive-include axiom_edge *.json
+recursive-include axiom_edge *.yaml
+recursive-include axiom_edge *.yml
+recursive-include axiom_edge *.txt
+recursive-include axiom_edge *.md
+recursive-include axiom_edge *.html
+recursive-include axiom_edge *.css
+recursive-include axiom_edge *.js
+
+# Include configuration templates
+recursive-include axiom_edge/configs *.json
+recursive-include axiom_edge/configs *.yaml
+recursive-include axiom_edge/configs *.yml
+
+# Include templates and schemas
+recursive-include axiom_edge/templates *
+recursive-include axiom_edge/schemas *.json
+
+# Include sample data (if any)
+recursive-include axiom_edge/data *.csv
+recursive-include axiom_edge/data *.json
+
+# Include tests
+recursive-include tests *.py
+recursive-include tests *.json
+recursive-include tests *.yaml
+recursive-include tests/data *
+
+# Include documentation
+recursive-include docs *.rst
+recursive-include docs *.md
+recursive-include docs *.txt
+recursive-include docs *.py
+recursive-include docs/source *
+recursive-include docs/build/html *
+
+# Include examples
+recursive-include examples *.py
+recursive-include examples *.json
+recursive-include examples *.yaml
+recursive-include examples *.md
+recursive-include examples/data *
+
+# Include scripts
+recursive-include scripts *.py
+recursive-include scripts *.sh
+recursive-include scripts *.bat
+
+# Exclude unnecessary files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude .git*
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.dll
+
+# Exclude development and build files
+global-exclude .pytest_cache
+global-exclude .coverage
+global-exclude .tox
+global-exclude .mypy_cache
+global-exclude build
+global-exclude dist
+global-exclude *.egg-info
+
+# Exclude IDE files
+global-exclude .vscode
+global-exclude .idea
+global-exclude *.swp
+global-exclude *.swo
+global-exclude *~
+
+# Exclude temporary files
+global-exclude *.tmp
+global-exclude *.temp
+global-exclude *.log
+global-exclude *.bak
+global-exclude *.orig
