@@ -146,9 +146,8 @@ pip install -r requirements.txt
 # Or install in development mode
 pip install -e .
 
-# Set up environment variables
+# Set up environment variables (only Gemini API key needed)
 export GEMINI_API_KEY="your-gemini-api-key"
-export FINANCIAL_API_KEY="your-financial-data-api-key"
 
 # Validate framework installation
 python validate_framework.py
@@ -244,6 +243,11 @@ task.save_data(data, "collected_data/")
 
 **Features:**
 - Multi-source data collection
+- **Self-sufficient data collection** (no external API keys required)
+- **Yahoo Finance integration** (free, reliable data source)
+- **Gemini AI-powered search** (enhanced data discovery)
+- **Sample data generation** (for testing and development)
+- **CSV file support** (custom datasets)
 - Intelligent caching (in-memory + disk)
 - Multiple timeframes support
 - Data validation and cleaning
@@ -712,15 +716,16 @@ results = task.run_complete_framework(data_files)
 ### Environment Variables
 
 ```bash
-# Required for AI analysis
+# Optional but recommended for AI analysis and enhanced data collection
 export GEMINI_API_KEY="your-gemini-api-key"
 
-# Required for data collection
-export FINANCIAL_API_KEY="your-alpha-vantage-key"
-# or
-export POLYGON_API_KEY="your-polygon-key"
+# Framework is self-sufficient - no external financial API keys required!
+# ✅ Yahoo Finance integration (free, no API key needed)
+# ✅ Sample data generation for testing
+# ✅ CSV file support for custom data
+# ✅ Gemini AI-powered data search (when API key is configured)
 
-# Optional: Broker API keys
+# Optional: Broker API keys for live trading (future feature)
 export OANDA_API_KEY="your-oanda-key"
 export IB_API_KEY="your-interactive-brokers-key"
 ```
