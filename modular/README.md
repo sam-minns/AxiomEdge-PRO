@@ -80,20 +80,45 @@ This project is released under the **GNU General Public License v3.0 (GPL-3.0)**
 ## 🏗️ Architecture Overview
 
 ```
-axiom_edge/
-├── __init__.py               # Main package exports
-├── config.py                 # Configuration and validation
-├── data_handler.py           # Data collection and caching
-├── ai_analyzer.py            # AI analysis with Gemini
-├── feature_engineer.py       # 200+ Feature engineering
-├── model_trainer.py          # ML model training
-├── backtester.py             # Advanced backtesting engine
-├── genetic_programmer.py     # Genetic algorithm optimization
-├── report_generator.py       # Report generation 
-├── framework_orchestrator.py # Complete framework orchestration
-├── telemetry.py              # Advanced telemetry & monitoring
-├── tasks.py                  # Task-specific interfaces
-└── utils.py                  # Utility functions
+AxiomEdge/
+├── axiom_edge/                    # Main package directory
+│   ├── __init__.py                # Main package exports
+│   ├── __main__.py                # Module execution support
+│   ├── main.py                    # Modular main entry point
+│   ├── config.py                  # Configuration and validation
+│   ├── data_handler.py            # Data collection and caching
+│   ├── ai_analyzer.py             # AI analysis with Gemini
+│   ├── feature_engineer.py        # 200+ Feature engineering
+│   ├── model_trainer.py           # ML model training
+│   ├── backtester.py              # Advanced backtesting engine
+│   ├── genetic_programmer.py      # Genetic algorithm optimization
+│   ├── report_generator.py        # Report generation
+│   ├── framework_orchestrator.py  # Complete framework orchestration
+│   ├── telemetry.py               # Advanced telemetry & monitoring
+│   ├── tasks.py                   # Task-specific interfaces
+│   └── utils.py                   # Utility functions
+├── examples/                      # Comprehensive examples (11 files)
+│   ├── README.md                  # Examples documentation
+│   ├── quick_start.py             # Beginner-friendly introduction
+│   ├── basic_usage.py             # Core component usage
+│   ├── data_collection_demo.py    # Data management demo
+│   ├── feature_engineering_demo.py # 200+ features demo
+│   ├── model_training_demo.py     # Advanced ML demo
+│   ├── backtesting_demo.py        # Comprehensive backtesting
+│   ├── genetic_programming_demo.py # Strategy evolution
+│   ├── report_generation_demo.py  # Professional reporting
+│   ├── complete_framework_demo.py # Production workflow
+│   └── complete_axiom_edge_demo.py # Unique capabilities
+├── main.py                        # Root CLI entry point
+├── setup.py                       # Package installation
+├── pyproject.toml                 # Modern packaging
+├── requirements.txt               # Dependencies
+├── MANIFEST.in                    # Package manifest
+├── README.md                      # This documentation
+├── PROJECT_STRUCTURE.md           # Project structure guide
+├── integration_test_summary.md    # Test results
+├── validate_framework.py          # Framework validation
+└── LICENSE                        # GPL 3.0 license
 ```
 
 ### 🎯 **Implementation Status**
@@ -123,10 +148,53 @@ pip install -e .
 # Set up environment variables
 export GEMINI_API_KEY="your-gemini-api-key"
 export FINANCIAL_API_KEY="your-financial-data-api-key"
+
+# Validate framework installation
+python validate_framework.py
 ```
+
+### Framework Validation
+
+AxiomEdge includes a comprehensive validation script to ensure all components are properly installed and functional:
+
+```bash
+# Run complete framework validation
+python validate_framework.py
+
+# Expected output:
+# 🚀 AxiomEdge Framework Validation
+# ✅ File Structure: PASSED (21 files validated)
+# ✅ Module Imports: PASSED (14 modules tested)
+# ✅ Package Functionality: PASSED
+# ✅ Task Interfaces: PASSED
+# ✅ Telemetry System: PASSED
+# 🎉 All validations passed! Framework is ready to use.
+```
+
+**Validation Coverage:**
+- **File Structure**: Validates all 21 core framework files
+- **Import Testing**: Tests all 14 major modules for import errors
+- **Package Functionality**: Tests framework-level features and convenience functions
+- **Task Interfaces**: Validates all task-based interfaces work correctly
+- **Telemetry System**: Tests monitoring and analytics capabilities
+- **Utility Functions**: Validates utility function robustness
+- **Configuration System**: Tests comprehensive configuration management
 
 ### Basic Usage
 
+**Command Line Interface:**
+```bash
+# Run as module
+python -m axiom_edge --task complete --data-files "data/*.csv"
+
+# Or use main script
+python main.py --task features --data-file data.csv
+
+# Quick start for beginners
+python examples/quick_start.py
+```
+
+**Python API:**
 ```python
 # Import specific components
 from axiom_edge import DataCollectionTask, FeatureEngineeringTask, ConfigModel
@@ -1326,7 +1394,9 @@ While you are free to use, modify, and distribute this software under the GPL-3.
 - **Status**: Production Ready ✅
 - **License**: GPL 3.0
 - **Python**: 3.8+ Required
-- **Last Updated**: 2024
+- **Last Updated**: December 2024
+- **Examples**: 11 comprehensive demonstration files
+- **Validation**: Complete framework validation script included
 
 ### 🤝 **Get Involved**
 - ⭐ **Star the repository** if you find it useful
