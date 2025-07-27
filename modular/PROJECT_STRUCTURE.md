@@ -4,78 +4,78 @@
 
 ```
 AxiomEdge/
-├── axiom_edge/                    # Main package directory
-│   ├── __init__.py                # Package initialization and exports
-│   ├── config.py                  # Configuration models and validation
-│   ├── data_handler.py            # Data collection and caching
-│   ├── ai_analyzer.py             # AI analysis with Gemini API
-│   ├── feature_engineer.py        # Feature engineering
-│   ├── model_trainer.py           # ML model training
-│   ├── backtester.py              # Strategy backtesting
-│   ├── genetic_programmer.py      # Genetic algorithm optimization
-│   ├── report_generator.py        # Report generation
-│   ├── framework_orchestrator.py  # Complete framework orchestration
-│   ├── telemetry.py               # Advanced telemetry and monitoring
-│   ├── tasks.py                   # Task-specific interfaces
-│   └── utils.py                   # Utility functions
+├── axiom_edge/                     # Main package directory
+│   ├── __init__.py                 # Package initialization and exports
+│   ├── config.py                   # Configuration models and validation
+│   ├── data_handler.py             # Data collection and caching
+│   ├── ai_analyzer.py              # AI analysis with Gemini API
+│   ├── feature_engineer.py         # Feature engineering
+│   ├── model_trainer.py            # ML model training
+│   ├── backtester.py               # Strategy backtesting
+│   ├── genetic_programmer.py       # Genetic algorithm optimization
+│   ├── report_generator.py         # Report generation
+│   ├── framework_orchestrator.py   # Complete framework orchestration
+│   ├── telemetry.py                # Advanced telemetry and monitoring
+│   ├── tasks.py                    # Task-specific interfaces
+│   └── utils.py                    # Utility functions
 │
-├── examples/                     # Usage examples
-│   ├── README.md                 # Comprehensive examples documentation
-│   ├── quick_start.py            # Beginner-friendly introduction
-│   ├── basic_usage.py            # Basic usage examples
-│   ├── data_collection_demo.py   # Data management capabilities
+├── examples/                       # Usage examples
+│   ├── README.md                   # Comprehensive examples documentation
+│   ├── quick_start.py              # Beginner-friendly introduction
+│   ├── basic_usage.py              # Basic usage examples
+│   ├── data_collection_demo.py     # Data management capabilities
 │   ├── feature_engineering_demo.py # 200+ features demonstration
-│   ├── model_training_demo.py    # Advanced ML capabilities
-│   ├── backtesting_demo.py       # Comprehensive backtesting
+│   ├── model_training_demo.py      # Advanced ML capabilities
+│   ├── backtesting_demo.py         # Comprehensive backtesting
 │   ├── genetic_programming_demo.py # Strategy evolution
-│   ├── report_generation_demo.py # Professional reporting
-│   ├── complete_framework_demo.py # Production workflow
+│   ├── report_generation_demo.py   # Professional reporting
+│   ├── complete_framework_demo.py  # Production workflow
 │   └── complete_axiom_edge_demo.py # Unique capabilities showcase
 │
-├── configs/                      # Configuration files
-│   ├── default_config.json       # Default configuration
-│   ├── conservative_config.json  # Conservative trading config
-│   ├── aggressive_config.json    # Aggressive trading config
-│   └── research_config.json      # Research/experimental config
+├── configs/                        # Configuration files
+│   ├── default_config.json         # Default configuration
+│   ├── conservative_config.json    # Conservative trading config
+│   ├── aggressive_config.json      # Aggressive trading config
+│   └── research_config.json        # Research/experimental config
 │
-├── docs/                        # Documentation
-│   ├── api/                     # API documentation
-│   ├── tutorials/               # Step-by-step tutorials
-│   ├── strategies/              # Strategy development guides
-│   └── troubleshooting/         # Common issues and solutions
+├── docs/                           # Documentation
+│   ├── api/                        # API documentation
+│   ├── tutorials/                  # Step-by-step tutorials
+│   ├── strategies/                 # Strategy development guides
+│   └── troubleshooting/            # Common issues and solutions
 │
-├── tests/                       # Test suite
-│   ├── unit/                    # Unit tests
-│   ├── integration/             # Integration tests
-│   └── performance/             # Performance tests
+├── tests/                          # Test suite
+│   ├── unit/                       # Unit tests
+│   ├── integration/                # Integration tests
+│   └── performance/                # Performance tests
 │
-├── data/                        # Data directory (created at runtime)
-│   ├── raw/                     # Raw data files
-│   ├── processed/               # Processed data
-│   └── cache/                   # Cached data
+├── data/                           # Data directory (created at runtime)
+│   ├── raw/                        # Raw data files
+│   ├── processed/                  # Processed data
+│   └── cache/                      # Cached data
 │
-├── results/                     # Results directory (created at runtime)
-│   ├── backtests/               # Backtest results
-│   ├── models/                  # Trained models
-│   ├── features/                # Feature engineering outputs
-│   └── reports/                 # Generated reports
+├── results/                        # Results directory (created at runtime)
+│   ├── backtests/                  # Backtest results
+│   ├── models/                     # Trained models
+│   ├── features/                   # Feature engineering outputs
+│   └── reports/                    # Generated reports
 │
-├── logs/                        # Log files (created at runtime)
-│   ├── application.log          # Main application logs
-│   ├── errors.log               # Error logs
-│   └── performance.log          # Performance logs
+├── logs/                          # Log files (created at runtime)
+│   ├── application.log            # Main application logs
+│   ├── errors.log                 # Error logs
+│   └── performance.log            # Performance logs
 │
-├── main.py                      # Main entry point script
-├── setup.py                     # Package setup configuration
-├── pyproject.toml               # Modern packaging configuration
-├── requirements.txt             # Python dependencies
-├── MANIFEST.in                  # Package manifest file
-├── README.md                    # Main documentation
-├── PROJECT_STRUCTURE.md         # This file
-├── integration_test_summary.md  # Integration test results
-├── validate_framework.py        # Framework validation script
-├── LICENSE                      # License file
-└── .gitignore                   # Git ignore rules
+├── main.py                        # Main entry point script
+├── setup.py                       # Package setup configuration
+├── pyproject.toml                 # Modern packaging configuration
+├── requirements.txt               # Python dependencies
+├── MANIFEST.in                    # Package manifest file
+├── README.md                      # Main documentation
+├── PROJECT_STRUCTURE.md           # This file
+├── integration_test_summary.md    # Integration test results
+├── validate_framework.py          # Framework validation script
+├── LICENSE                        # License file
+└── .gitignore                     # Git ignore rules
 ```
 
 ## 🏗️ Modular Architecture
