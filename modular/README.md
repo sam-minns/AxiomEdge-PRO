@@ -7,6 +7,7 @@
 [![Discussions](https://img.shields.io/github/discussions/sam-minns/AxiomEdge-PRO)](https://github.com/sam-minns/AxiomEdge-PRO/discussions)
 
 AxiomEdge is a comprehensive AI-powered trading framework that can be used as individual components or as a complete integrated system. The modular design allows you to use only the parts you need for specific tasks.
+Still under development.
 
 ## 🔗 **Quick Links**
 
@@ -81,44 +82,44 @@ This project is released under the **GNU General Public License v3.0 (GPL-3.0)**
 
 ```
 AxiomEdge/
-├── axiom_edge/                    # Main package directory
-│   ├── __init__.py                # Main package exports
-│   ├── __main__.py                # Module execution support
-│   ├── main.py                    # Modular main entry point
-│   ├── config.py                  # Configuration and validation
-│   ├── data_handler.py            # Data collection and caching
-│   ├── ai_analyzer.py             # AI analysis with Gemini
-│   ├── feature_engineer.py        # 200+ Feature engineering
-│   ├── model_trainer.py           # ML model training
-│   ├── backtester.py              # Advanced backtesting engine
-│   ├── genetic_programmer.py      # Genetic algorithm optimization
-│   ├── report_generator.py        # Report generation
-│   ├── framework_orchestrator.py  # Complete framework orchestration
-│   ├── telemetry.py               # Advanced telemetry & monitoring
-│   ├── tasks.py                   # Task-specific interfaces
-│   └── utils.py                   # Utility functions
-├── examples/                      # Comprehensive examples (11 files)
-│   ├── README.md                  # Examples documentation
-│   ├── quick_start.py             # Beginner-friendly introduction
-│   ├── basic_usage.py             # Core component usage
-│   ├── data_collection_demo.py    # Data management demo
-│   ├── feature_engineering_demo.py # 200+ features demo
-│   ├── model_training_demo.py     # Advanced ML demo
-│   ├── backtesting_demo.py        # Comprehensive backtesting
-│   ├── genetic_programming_demo.py # Strategy evolution
-│   ├── report_generation_demo.py  # Professional reporting
-│   ├── complete_framework_demo.py # Production workflow
-│   └── complete_axiom_edge_demo.py # Unique capabilities
-├── main.py                        # Root CLI entry point
-├── setup.py                       # Package installation
-├── pyproject.toml                 # Modern packaging
-├── requirements.txt               # Dependencies
-├── MANIFEST.in                    # Package manifest
-├── README.md                      # This documentation
-├── PROJECT_STRUCTURE.md           # Project structure guide
-├── integration_test_summary.md    # Test results
-├── validate_framework.py          # Framework validation
-└── LICENSE                        # GPL 3.0 license
+├── axiom_edge/                      # Main package directory
+│   ├── __init__.py                  # Main package exports
+│   ├── __main__.py                  # Module execution support
+│   ├── main.py                      # Modular main entry point
+│   ├── config.py                    # Configuration and validation
+│   ├── data_handler.py              # Data collection and caching
+│   ├── ai_analyzer.py               # AI analysis with Gemini
+│   ├── feature_engineer.py          # 200+ Feature engineering
+│   ├── model_trainer.py             # ML model training
+│   ├── backtester.py                # Advanced backtesting engine
+│   ├── genetic_programmer.py        # Genetic algorithm optimization
+│   ├── report_generator.py          # Report generation
+│   ├── framework_orchestrator.py    # Complete framework orchestration
+│   ├── telemetry.py                 # Advanced telemetry & monitoring
+│   ├── tasks.py                     # Task-specific interfaces
+│   └── utils.py                     # Utility functions
+├── examples/                        # Comprehensive examples (11 files)
+│   ├── README.md                    # Examples documentation
+│   ├── quick_start.py               # Beginner-friendly introduction
+│   ├── basic_usage.py               # Core component usage
+│   ├── data_collection_demo.py      # Data management demo
+│   ├── feature_engineering_demo.py  # 200+ features demo
+│   ├── model_training_demo.py       # Advanced ML demo
+│   ├── backtesting_demo.py          # Comprehensive backtesting
+│   ├── genetic_programming_demo.py  # Strategy evolution
+│   ├── report_generation_demo.py    # Professional reporting
+│   ├── complete_framework_demo.py   # Production workflow
+│   └── complete_axiom_edge_demo.py  # Unique capabilities
+├── main.py                          # Root CLI entry point
+├── setup.py                         # Package installation
+├── pyproject.toml                   # Modern packaging
+├── requirements.txt                 # Dependencies
+├── MANIFEST.in                      # Package manifest
+├── README.md                        # This documentation
+├── PROJECT_STRUCTURE.md             # Project structure guide
+├── integration_test_summary.md      # Test results
+├── validate_framework.py            # Framework validation
+└── LICENSE                          # GPL 3.0 license
 ```
 
 ### 🎯 **Implementation Status**
