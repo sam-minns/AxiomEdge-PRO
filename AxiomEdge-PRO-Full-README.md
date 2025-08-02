@@ -1,7 +1,3 @@
-You're right. The previous README focused on the high-level capabilities. To make it more comprehensive, I'll add a new section detailing the core classes and their key methods, explaining how predictions are generated, explained, and acted upon.
-
-Here is the updated, more comprehensive README with the new **"Core Components & Methods"** section included.
-
 -----
 
 # AxiomEdge Professional Trading Framework v2.1.1
