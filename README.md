@@ -1,7 +1,7 @@
 
 -----
 
-# End-to-End AI-Powered Algorithmic Trading Framework (Strealined Version)
+# End-to-End AI-Powered Algorithmic Trading Framework (Streamlined Version)
 
 Full version and Modular Version README are far more complax and will require significant higher system requirements.  
 
